@@ -1,0 +1,29 @@
+[project]
+name = "comp_general"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=1.10.1",
+    "azure-ai-documentintelligence>=1.0.2",
+    "chardet>=5.2.0",
+    "google-genai>=1.29.0",
+    "ipykernel>=6.30.0",
+    "jupyterlab>=4.4.5",
+    "llama-cloud-services>=0.6.57",
+    "matplotlib>=3.10.5",
+    "numpy>=2.3.2",
+    "opencv-python>=4.11.0.86",
+    "pdf2image>=1.17.0",
+    "pillow>=11.3.0",
+    "pymupdf>=1.26.3",
+    "python-dotenv>=1.1.1",
+    "qwen-vl-utils>=0.0.14",
+    "requests>=2.32.4",
+    "transformers>=4.56.2",
+    "yomitoku>=0.9.5",
+]
+
+[tool.uv.sources]
+transformers = { git = "https://github.com/huggingface/transformers.git" }
