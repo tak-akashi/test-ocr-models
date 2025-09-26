@@ -10,6 +10,9 @@ wheels/
 .venv
 .env
 
+# Model cache
+.cache/
+
 !logs/
 logs/*
 !logs/.gitkeep
