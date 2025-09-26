@@ -87,44 +87,50 @@ notebook/                        # オリジナルのJupyterノートブック
 
 #### 特定ページの抽出
 ```bash
+# プロジェクトルートから実行（推奨）
+uv run python run_preprocessing.py extract input.pdf --pages 1 2 3 --output-dir output/
+# または
 uv run python src/run_preprocessing.py extract input.pdf --pages 1 2 3 --output-dir output/
 ```
 
 #### PDFを個別ページに分割
 ```bash
-uv run python src/run_preprocessing.py split input.pdf --output-dir output/
+uv run python run_preprocessing.py split input.pdf --output-dir output/
 ```
 
 #### PDFを画像に変換
 ```bash
-uv run python src/run_preprocessing.py images input.pdf --dpi-scale 2.0
+uv run python run_preprocessing.py images input.pdf --dpi-scale 2.0
 ```
 
 #### 複数PDFのバッチ処理
 ```bash
-uv run python src/run_preprocessing.py batch data/ --operation split --output-dir output/
+uv run python run_preprocessing.py batch data/ --operation split --output-dir output/
 ```
 
 ### ドキュメント処理テスト
 
 #### 全モデルでテストを実行（タイミング計測付き）
 ```bash
+# プロジェクトルートから実行（推奨）
+uv run python run_baseline.py data/*.pdf --timing
+# または
 uv run python src/run_baseline.py data/*.pdf --timing
 ```
 
 #### Qwenモデルのみ実行
 ```bash
-uv run python src/run_baseline.py data/*.pdf --qwen-only --timing
+uv run python run_baseline.py data/*.pdf --qwen-only --timing
 ```
 
 #### 最適化を適用して実行
 ```bash
-uv run python src/run_baseline.py data/*.pdf --optimize --timing
+uv run python run_baseline.py data/*.pdf --optimize --timing
 ```
 
 #### カスタム出力ディレクトリを指定
 ```bash
-uv run python src/run_baseline.py data/*.pdf --output-dir custom_output/ --timing
+uv run python run_baseline.py data/*.pdf --output-dir custom_output/ --timing
 ```
 
 ### プログラムからの使用

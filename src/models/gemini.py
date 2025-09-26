@@ -6,7 +6,7 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 from pdf2image import convert_from_path
-from ..utils.file_utils import save_markdown
+from src.utils.file_utils import save_markdown
 
 
 # Default prompt for document processing

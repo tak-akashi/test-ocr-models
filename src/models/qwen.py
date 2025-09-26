@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor, AutoModelForImageTextToText
 from qwen_vl_utils import process_vision_info
-from ..utils.file_utils import save_markdown
+from src.utils.file_utils import save_markdown
 
 
 # Global model cache

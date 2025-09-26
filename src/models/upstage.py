@@ -3,7 +3,7 @@
 import os
 import requests
 from pathlib import Path
-from ..utils.file_utils import save_html, save_markdown
+from src.utils.file_utils import save_html, save_markdown
 
 
 def run_upstage(pdf_path, output_dir=Path("../output/upstage"), type="html", save=True):

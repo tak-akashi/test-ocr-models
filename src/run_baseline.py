@@ -1,52 +1,26 @@
 """Main script for running baseline document processing tests."""
 
-import argparse
+import sys
 from pathlib import Path
+
+# Add project root to Python path when running from src directory
+if __name__ == "__main__":
+    project_root = Path(__file__).parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-from models.upstage import run_upstage
-from models.azure_di import run_azure_di
-from models.yomitoku import run_yomitoku
-from models.gemini import run_gemini
-from models.qwen import (
-    run_qwen25vl_optimized,
-    run_qwen3vl_optimized,
-    initialize_models,
-    clear_model_cache,
-    optimize_for_speed
-)
-from utils.timing import measure_time, save_timing_results, print_timing_summary
-
-
-def run_baseline(file_list):
-    """
-    Run all baseline models on the given files.
-
-    Args:
-        file_list: List of PDF file paths to process
-    """
-    for file_path in file_list:
-        print(f"Processing {file_path}...")
-
-        # Upstage Document Parse
-        run_upstage(file_path, output_dir=Path("../output/upstage"), save=True)
-        print("Processing Upstage/Document Parse... done")
-
-        # Azure Document Intelligence
-        run_azure_di(file_path, output_dir=Path("../output/azure"), save=True)
-        print("Processing Azure/Document Intelligence... done")
-
-        # YOMITOKU
-        run_yomitoku(file_path, output_dir=Path("../output/yomitoku"), save=True)
-        print("Processing YOMITOKU... done")
-
-        # Gemini 2.5 Flash
-        run_gemini(file_path, output_dir=Path("../output/gemini"), save=True)
-        print("Processing Gemini 2.5 Flash... done")
+from src.models.upstage import run_upstage
+from src.models.azure_di import run_azure_di
+from src.models.yomitoku import run_yomitoku
+from src.models.gemini import run_gemini
+from src.utils.timing import measure_time, save_timing_results, print_timing_summary
 
 
 def run_baseline_timed_with_datetime(file_list, base_output_dir=None):
@@ -162,121 +136,26 @@ def run_baseline_timed_with_datetime(file_list, base_output_dir=None):
         timing_data["results"].append(file_result)
         print(f"  File {file_idx + 1} completed\n")
 
-    # Save timing results
+    # Always save timing results and print summary
     save_timing_results(timing_data, str(base_output_dir / "timing_results"))
-
-    # Print summary
     print_timing_summary(timing_data)
 
     print(f"\n出力フォルダ: {base_output_dir}")
     return timing_data
 
-
-def run_qwen(file_list):
-    """
-    Run Qwen models on the given files.
-
-    Args:
-        file_list: List of PDF file paths to process
-    """
-    initialize_models()
-
-    for file_path in file_list:
-        file_path = Path(file_path)
-        run_qwen25vl_optimized(file_path, output_dir=Path("../output/qwen25vl"), save=True)
-        # Note: Qwen3VL is commented out in original code
-        # run_qwen3vl_optimized(file_path, output_dir=Path("../output/qwen3vl"), save=True)
-
-
-def run_qwen_timed_with_datetime(file_list, base_output_dir=None):
-    """
-    Run Qwen models with timing and datetime-based output folders.
-
-    Args:
-        file_list: List of PDF file paths to process
-        base_output_dir: Base output directory
-
-    Returns:
-        dict: Timing data for all processing
-    """
-    # Create datetime-based output folder
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-
-    if base_output_dir is None:
-        base_output_dir = Path(f"../output/{timestamp}")
-    else:
-        base_output_dir = Path(base_output_dir) / timestamp
-
-    base_output_dir.mkdir(parents=True, exist_ok=True)
-
-    timing_data = {
-        "timestamp": datetime.now().isoformat(),
-        "total_files": len(file_list),
-        "output_base_dir": str(base_output_dir),
-        "results": []
-    }
-
-    # Initialize models
-    print("モデルを初期化中...")
-    initialize_models()
-
-    for file_idx, file_path in enumerate(file_list):
-        file_path = Path(file_path)
-        print(f"Processing {file_path}... ({file_idx + 1}/{len(file_list)})")
-
-        file_result = {
-            "file_path": str(file_path),
-            "file_name": file_path.name,
-            "models": {}
-        }
-
-        # Qwen2.5VL
-        print("  Processing Qwen2.5VL...")
-        try:
-            _, exec_time = measure_time(run_qwen25vl_optimized, file_path,
-                                       output_dir=base_output_dir / "qwen25vl", save=True)
-            file_result["models"]["qwen25vl"] = {
-                "status": "success",
-                "execution_time": exec_time
-            }
-            print(f"    Qwen2.5VL completed in {exec_time:.2f} seconds")
-        except Exception as e:
-            file_result["models"]["qwen25vl"] = {
-                "status": "error",
-                "error": str(e),
-                "execution_time": 0
-            }
-            print(f"    Qwen2.5VL failed: {e}")
-
-        timing_data["results"].append(file_result)
-        print(f"  File {file_idx + 1} completed\n")
-
-    # Save timing results
-    save_timing_results(timing_data, str(base_output_dir / "timing_results"))
-
-    # Print summary
-    print_timing_summary(timing_data)
-
-    print(f"\n出力フォルダ: {base_output_dir}")
-    return timing_data
 
 
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(description="Run baseline document processing tests")
-    parser.add_argument("input", nargs="+", help="Input PDF file(s) or directory")
+    parser.add_argument("input", nargs="*", default=["data"],
+                       help="Input PDF file(s) or directory (default: data)")
     parser.add_argument("--models", nargs="+",
-                       choices=["upstage", "azure", "yomitoku", "gemini", "qwen25vl", "all"],
+                       choices=["upstage", "azure", "yomitoku", "gemini", "all"],
                        default=["all"],
                        help="Models to run (default: all)")
-    parser.add_argument("--output-dir", type=str, default="../output",
-                       help="Base output directory (default: ../output)")
-    parser.add_argument("--timing", action="store_true",
-                       help="Enable timing measurement")
-    parser.add_argument("--qwen-only", action="store_true",
-                       help="Run only Qwen models")
-    parser.add_argument("--optimize", action="store_true",
-                       help="Apply speed optimizations for Qwen models")
+    parser.add_argument("--output-dir", type=str, default="output",
+                       help="Base output directory (default: output)")
 
     args = parser.parse_args()
 
@@ -295,21 +174,8 @@ def main():
 
     print(f"Found {len(pdf_files)} PDF file(s)")
 
-    # Apply optimizations if requested
-    if args.optimize:
-        optimize_for_speed()
-
-    # Run processing
-    if args.qwen_only:
-        if args.timing:
-            run_qwen_timed_with_datetime(pdf_files, args.output_dir)
-        else:
-            run_qwen(pdf_files)
-    else:
-        if args.timing:
-            run_baseline_timed_with_datetime(pdf_files, args.output_dir)
-        else:
-            run_baseline(pdf_files)
+    # Run baseline processing with timestamp-based output
+    run_baseline_timed_with_datetime(pdf_files, args.output_dir)
 
 
 if __name__ == "__main__":

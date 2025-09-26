@@ -1,7 +1,7 @@
 """File I/O utilities for saving and loading documents."""
 
 from pathlib import Path
-from .html_utils import normalize_html_content
+from src.utils.html_utils import normalize_html_content
 
 
 def save_html(html, pdf_path, output_dir):

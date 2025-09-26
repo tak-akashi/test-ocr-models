@@ -5,7 +5,7 @@ from pathlib import Path
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeResult, DocumentContentFormat
-from ..utils.file_utils import save_markdown
+from src.utils.file_utils import save_markdown
 
 
 def get_azure_client():
