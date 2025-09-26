@@ -1,0 +1,102 @@
+# Docker ignore file to optimize build context and reduce image size
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.env.*.local
+
+# Package manager caches
+.uv/
+uv.lock
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Output and temporary files
+output/
+*.log
+*.tmp
+temp/
+tmp/
+
+# Model cache directories (will be mounted as volumes)
+.cache/
+models/
+checkpoints/
+
+# Jupyter notebook checkpoints and metadata
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Documentation and development files (copied separately if needed)
+docs/
+*.md
+!CLAUDE.md
+!README.md
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.tox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Docker related files
+docker-compose.override.yml
+Dockerfile.dev
+
+# Large data files that should be mounted as volumes
+data/
+!data/.gitkeep
+
+# Environment files (handled via env_file in docker-compose)
+.env
+.env.*
+
+# Development specific files
+*.dev
+*.local
+development.yml
+
+# Backup files
+*.bak
+*.backup
+*~

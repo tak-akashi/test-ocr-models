@@ -1,0 +1,109 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded by docker-compose when present
+
+services:
+  document-processor:
+    # Development build configuration
+    build:
+      target: runtime
+      args:
+        - ENABLE_GPU=false
+
+    # Enable hot-reloading for development
+    volumes:
+      # Bind mount source code for live editing
+      - ./src:/app/src
+      - ./notebook:/app/notebook
+      - ./data:/app/data
+      - ./output:/app/output
+      # Configuration files
+      - ./CLAUDE.md:/app/CLAUDE.md
+      - ./README.md:/app/README.md
+      # Model cache
+      - ./.cache/huggingface:/app/.cache/huggingface
+
+    # Development environment variables
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - HF_HOME=/app/.cache/huggingface
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+      # Debug settings
+      - DEBUG=1
+      - LOG_LEVEL=DEBUG
+
+    # Keep container running for interactive development
+    command: bash
+    stdin_open: true
+    tty: true
+
+    # Auto-restart on crash during development
+    restart: unless-stopped
+
+  document-processor-gpu:
+    # GPU development configuration
+    build:
+      target: runtime-gpu
+      args:
+        - ENABLE_GPU=true
+
+    volumes:
+      - ./src:/app/src
+      - ./notebook:/app/notebook
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./CLAUDE.md:/app/CLAUDE.md
+      - ./README.md:/app/README.md
+      - ./.cache/huggingface-gpu:/app/.cache/huggingface
+
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - HF_HOME=/app/.cache/huggingface
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - DEBUG=1
+      - LOG_LEVEL=DEBUG
+
+    command: bash
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  jupyter:
+    # Jupyter development configuration
+    volumes:
+      - ./src:/app/src
+      - ./notebook:/app/notebook
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./.cache/huggingface:/app/.cache/huggingface
+
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - HF_HOME=/app/.cache/huggingface
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+      - DEBUG=1
+
+    # Jupyter with auto-reload and debugging enabled
+    command: >
+      bash -c "
+        jupyter lab
+        --ip=0.0.0.0
+        --port=8888
+        --no-browser
+        --allow-root
+        --NotebookApp.token=''
+        --NotebookApp.password=''
+        --ServerApp.allow_origin='*'
+        --autoreload
+      "
+
+    restart: unless-stopped

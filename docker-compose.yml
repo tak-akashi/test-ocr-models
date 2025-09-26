@@ -1,0 +1,135 @@
+services:
+  # Main application service (CPU-only)
+  document-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        - ENABLE_GPU=false
+        - UBUNTU_VERSION=22.04
+    image: document-processor:latest
+    container_name: document-processor
+    environment:
+      # Python configuration
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      # Hugging Face cache
+      - HF_HOME=/app/.cache/huggingface
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+    env_file:
+      - .env  # Load API keys and other secrets
+    volumes:
+      # Data persistence
+      - ./data:/app/data:ro
+      - ./output:/app/output
+      # Source code for development
+      - ./src:/app/src:ro
+      - ./notebook:/app/notebook
+      # Model cache persistence
+      - hf-cache:/app/.cache/huggingface
+    ports:
+      - "8888:8888"  # Jupyter Lab
+    working_dir: /app
+    command: bash
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # GPU-enabled service (for CUDA processing)
+  document-processor-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-gpu
+      args:
+        - ENABLE_GPU=true
+        - CUDA_VERSION=12.1.1
+        - UBUNTU_VERSION=22.04
+    image: document-processor-gpu:latest
+    container_name: document-processor-gpu
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - HF_HOME=/app/.cache/huggingface
+      # CUDA configuration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data:ro
+      - ./output:/app/output
+      - ./src:/app/src:ro
+      - ./notebook:/app/notebook
+      - hf-cache-gpu:/app/.cache/huggingface
+    ports:
+      - "8889:8888"  # Alternative port for GPU service
+    working_dir: /app
+    command: bash
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    profiles:
+      - gpu  # Only start with --profile gpu
+
+  # Jupyter service (standalone development)
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: document-processor:latest
+    container_name: document-processor-jupyter
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - HF_HOME=/app/.cache/huggingface
+      # Timezone configuration
+      - TZ=Asia/Tokyo
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data:ro
+      - ./output:/app/output
+      - ./src:/app/src
+      - ./notebook:/app/notebook
+      - hf-cache:/app/.cache/huggingface
+    ports:
+      - "8890:8888"
+    working_dir: /app
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
+    restart: unless-stopped
+    profiles:
+      - jupyter  # Only start with --profile jupyter
+
+volumes:
+  # Persistent model cache for CPU service
+  hf-cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.cache/huggingface
+
+  # Persistent model cache for GPU service
+  hf-cache-gpu:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.cache/huggingface-gpu
+
+networks:
+  default:
+    name: document-processing-network
