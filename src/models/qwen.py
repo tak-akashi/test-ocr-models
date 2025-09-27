@@ -62,6 +62,13 @@ def _select_device_and_dtype():
 def download_models():
     """Download and cache Qwen models."""
     print("Qwen2.5VLモデルをダウンロード中...")
+
+    # Set environment variables to avoid XetHub DNS issues
+    import os
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+    os.environ["HF_ENABLE_EXPERIMENTAL_FEATURES"] = "0"
+    os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+
     device, dtype = _select_device_and_dtype()
 
     # Check for accelerate availability
@@ -73,22 +80,54 @@ def download_models():
         use_device_map = False
         print("accelerateが利用できません。device_mapを使用せずにモデルを読み込みます。")
 
-    # Download Qwen2.5VL model
+    # Download Qwen2.5VL model with retry logic
     try:
-        if use_device_map and device.type != "cpu":
-            qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                "Qwen/Qwen2.5-VL-7B-Instruct",
-                dtype=dtype,
-                device_map="auto"
-            )
-        else:
-            qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                "Qwen/Qwen2.5-VL-7B-Instruct",
-                dtype=dtype
-            )
-            qwen25vl_model = qwen25vl_model.to(device)
+        max_retries = 3
+        qwen25vl_model = None
+        qwen25vl_processor = None
 
-        qwen25vl_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+        for attempt in range(max_retries):
+            try:
+                print(f"ダウンロード試行 {attempt + 1}/{max_retries}...")
+
+                if use_device_map and device.type != "cpu":
+                    qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                        "Qwen/Qwen2.5-VL-7B-Instruct",
+                        dtype=dtype,
+                        device_map="auto",
+                        resume_download=True,  # Resume partial downloads
+                        local_files_only=False,
+                        trust_remote_code=True
+                    )
+                else:
+                    qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                        "Qwen/Qwen2.5-VL-7B-Instruct",
+                        dtype=dtype,
+                        resume_download=True,
+                        local_files_only=False,
+                        trust_remote_code=True
+                    )
+                    qwen25vl_model = qwen25vl_model.to(device)
+
+                qwen25vl_processor = AutoProcessor.from_pretrained(
+                    "Qwen/Qwen2.5-VL-7B-Instruct",
+                    trust_remote_code=True
+                )
+                break  # Success, exit retry loop
+            except Exception as e:
+                if "xethub" in str(e).lower() or "dns" in str(e).lower():
+                    print(f"XetHub/DNSエラーが発生しました: {e}")
+                    if attempt < max_retries - 1:
+                        print("リトライします...")
+                        import time
+                        time.sleep(5)  # Wait before retry
+                    else:
+                        print("標準のHugging Faceダウンロードを試します...")
+                        # Try with legacy download method
+                        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+                        raise
+                else:
+                    raise
 
         _models_cache['qwen25vl'] = {
             'model': qwen25vl_model,

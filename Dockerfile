@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libxslt1-dev \
     zlib1g-dev \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Create python symlink for python3.12
@@ -61,7 +62,9 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Install system dependencies (same as base)
-RUN apt-get update && apt-get install -y \
+# Remove NVIDIA repositories to avoid mirror sync issues
+RUN rm -f /etc/apt/sources.list.d/cuda* /etc/apt/sources.list.d/nvidia* && \
+    apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update \
@@ -87,6 +90,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libxslt1-dev \
     zlib1g-dev \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python
@@ -121,30 +125,30 @@ FROM dependencies AS runtime
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
 RUN mkdir -p /app /app/data /app/output /app/notebook && \
-    chown -R appuser:appuser /app
+    chmod -R 775 /app
 
 # Set up Hugging Face cache directory
 ENV HF_HOME=/app/.cache/huggingface
-RUN mkdir -p $HF_HOME && chown -R appuser:appuser $HF_HOME
+RUN mkdir -p $HF_HOME && chmod -R 775 $HF_HOME
 
 # Copy application code
 COPY --chown=appuser:appuser src/ /app/src/
 COPY --chown=appuser:appuser notebook/ /app/notebook/
-COPY --chown=appuser:appuser CLAUDE.md README.md /app/
+# Copy documentation files
+COPY --chown=appuser:appuser README.md /app/
 
-# Copy entrypoint script
-COPY --chown=appuser:appuser entrypoint.sh /app/
-RUN chmod +x /app/entrypoint.sh
+# Copy new entrypoint script with permission fixes
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Set working directory
 WORKDIR /app
 
 # Expose Jupyter port
 EXPOSE 8888
 
-# Set default entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Set default entrypoint (will handle user switching)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Default command (can be overridden)
 CMD ["bash"]
@@ -172,30 +176,30 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
 RUN mkdir -p /app /app/data /app/output /app/notebook && \
-    chown -R appuser:appuser /app
+    chmod -R 775 /app
 
 # Set up Hugging Face cache directory
 ENV HF_HOME=/app/.cache/huggingface
-RUN mkdir -p $HF_HOME && chown -R appuser:appuser $HF_HOME
+RUN mkdir -p $HF_HOME && chmod -R 775 $HF_HOME
 
 # Copy application code
 COPY --chown=appuser:appuser src/ /app/src/
 COPY --chown=appuser:appuser notebook/ /app/notebook/
-COPY --chown=appuser:appuser CLAUDE.md README.md /app/
+# Copy documentation files
+COPY --chown=appuser:appuser README.md /app/
 
-# Copy entrypoint script
-COPY --chown=appuser:appuser entrypoint.sh /app/
-RUN chmod +x /app/entrypoint.sh
+# Copy new entrypoint script with permission fixes
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Set working directory
 WORKDIR /app
 
 # Expose Jupyter port
 EXPOSE 8888
 
-# Set default entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Set default entrypoint (will handle user switching)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Default command (can be overridden)
 CMD ["bash"]

@@ -23,12 +23,12 @@ services:
     volumes:
       # Data persistence
       - ./data:/app/data:ro
-      - ./output:/app/output
+      - ./output:/app/output:rw
       # Source code for development
       - ./src:/app/src:ro
-      - ./notebook:/app/notebook
+      - ./notebook:/app/notebook:rw
       # Model cache persistence
-      - hf-cache:/app/.cache/huggingface
+      - hf-cache:/app/.cache/huggingface:rw
     ports:
       - "8888:8888"  # Jupyter Lab
     working_dir: /app
@@ -36,6 +36,10 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
 
   # GPU-enabled service (for CUDA processing)
   document-processor-gpu:
@@ -62,10 +66,10 @@ services:
       - .env
     volumes:
       - ./data:/app/data:ro
-      - ./output:/app/output
+      - ./output:/app/output:rw
       - ./src:/app/src:ro
-      - ./notebook:/app/notebook
-      - hf-cache-gpu:/app/.cache/huggingface
+      - ./notebook:/app/notebook:rw
+      - hf-cache-gpu:/app/.cache/huggingface:rw
     ports:
       - "8889:8888"  # Alternative port for GPU service
     working_dir: /app
@@ -73,6 +77,10 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
     deploy:
       resources:
         reservations:
@@ -101,15 +109,19 @@ services:
       - .env
     volumes:
       - ./data:/app/data:ro
-      - ./output:/app/output
-      - ./src:/app/src
-      - ./notebook:/app/notebook
-      - hf-cache:/app/.cache/huggingface
+      - ./output:/app/output:rw
+      - ./src:/app/src:rw
+      - ./notebook:/app/notebook:rw
+      - hf-cache:/app/.cache/huggingface:rw
     ports:
       - "8890:8888"
     working_dir: /app
     command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
     profiles:
       - jupyter  # Only start with --profile jupyter
 
