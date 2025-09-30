@@ -6,7 +6,7 @@ from pathlib import Path
 from src.utils.file_utils import save_html, save_markdown
 
 
-def run_upstage(pdf_path, output_dir=Path("../output/upstage"), type="html", save=True):
+def run_upstage(pdf_path, output_dir=Path("../output/upstage"), model="document-parse-nightly", type="html", save=True):
     """
     Process PDF using Upstage Document Parse API.
 
@@ -25,7 +25,7 @@ def run_upstage(pdf_path, output_dir=Path("../output/upstage"), type="html", sav
 
     with open(pdf_path, "rb") as f:
         files = {"document": f}
-        data = {"ocr": "auto", "model": "document-parse-nightly"}
+        data = {"ocr": "auto", "model": model}
         response = requests.post(url, headers=headers, files=files, data=data)
 
     if response.status_code != 200:

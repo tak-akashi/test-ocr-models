@@ -17,6 +17,7 @@ logs/*
 !data/
 data/*
 !data/.gitkeep
+data*/
 
 !output/
 output/*
@@ -25,6 +26,15 @@ output*/
 sample/
 temp/
 /temp/
+sample/
+sample*/
 
 docs/claude_code.md
 CLAUDE.md
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
