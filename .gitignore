@@ -10,6 +10,10 @@ wheels/
 .venv
 .env
 
+# Cache directories
+.cache/
+notebook/.cache/
+
 !logs/
 logs/*
 !logs/.gitkeep

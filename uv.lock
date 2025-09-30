@@ -3240,7 +3240,7 @@ wheels = [
 ]
 
 [[package]]
-name = "test"
+name = "test-ocr-models"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
