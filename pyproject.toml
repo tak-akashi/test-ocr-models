@@ -6,11 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "accelerate>=1.10.1",
+    "anthropic>=0.69.0",
     "azure-ai-documentintelligence>=1.0.2",
     "chardet>=5.2.0",
     "google-genai>=1.29.0",
     "ipykernel>=6.30.0",
     "jupyterlab>=4.4.5",
+    "langchain-anthropic>=0.3.21",
+    "langchain-openai>=0.3.35",
     "llama-cloud-services>=0.6.57",
     "matplotlib>=3.10.5",
     "numpy>=2.3.2",

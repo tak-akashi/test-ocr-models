@@ -12,6 +12,7 @@
 - **Azure Document Intelligence** - Microsoftのドキュメント処理サービス
 - **YOMITOKU** - 日本語OCRライブラリ
 - **Gemini 2.5 Flash** - GoogleのマルチモーダルAI
+- **Claude Sonnet 4.5** - Anthropicのマルチモーダル言語モデル
 - **Qwen2.5-VL** - Vision-Language統合モデル
 
 ### 実行環境
@@ -128,6 +129,9 @@ AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_azure_api_key
 
 # Google Gemini
 GEMINI_API_KEY=your_gemini_api_key
+
+# Anthropic Claude
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 ## 📁 プロジェクト構成
@@ -137,12 +141,20 @@ src/
 ├── __init__.py
 ├── preprocessing.py              # PDF前処理機能
 ├── run_baseline.py              # ベースラインテスト実行スクリプト
+├── run_selected.py              # 選択モデル実行スクリプト
 ├── run_preprocessing.py         # 前処理実行スクリプト
+├── run_upstage.py               # Upstage単独実行スクリプト
+├── run_azure.py                 # Azure単独実行スクリプト
+├── run_yomitoku.py              # YOMITOKU単独実行スクリプト
+├── run_gemini.py                # Gemini単独実行スクリプト
+├── run_claude.py                # Claude単独実行スクリプト
+├── run_qwen.py                  # Qwen単独実行スクリプト
 ├── models/                      # 各モデルの実装
 │   ├── upstage.py              # Upstage Document Parse
 │   ├── azure_di.py             # Azure Document Intelligence
 │   ├── yomitoku.py             # YOMITOKU OCR
 │   ├── gemini.py               # Gemini 2.5 Flash
+│   ├── claude.py               # Claude Sonnet 4.5
 │   └── qwen.py                 # Qwen VLモデル
 └── utils/                       # ユーティリティ関数
     ├── html_utils.py           # HTML正規化
@@ -260,51 +272,87 @@ docker-compose exec document-processor python src/run_baseline.py
 docker run --rm -v ./data:/app/data:ro -v ./output:/app/output --env-file .env document-processor baseline
 ```
 
-#### Qwenモデルのみ実行（GPU推奨）
+#### 個別モデルの実行
+
+各モデルを単独で実行できます。
 
 **ネイティブ環境:**
 ```bash
-uv run python run_baseline.py data/*.pdf --qwen-only --timing
+# Upstage のみ実行
+uv run python src/run_upstage.py
+
+# Azure のみ実行
+uv run python src/run_azure.py
+
+# YOMITOKU のみ実行
+uv run python src/run_yomitoku.py
+
+# Gemini のみ実行
+uv run python src/run_gemini.py
+
+# Claude のみ実行
+uv run python src/run_claude.py
+
+# Qwen のみ実行（GPU推奨）
+uv run python src/run_qwen.py
 ```
 
 **Docker環境:**
 ```bash
-# 方法1: GPU対応bashに入って直接実行（推奨）
-docker-compose run --rm --gpus all document-processor-gpu bash
-# コンテナ内で実行:
-python src/run_qwen.py
-
-# 方法2: GPU対応サービス経由で実行
-docker-compose --profile gpu up -d document-processor-gpu
-docker-compose exec document-processor-gpu python src/run_qwen.py
-
-# 方法3: 一回限りの実行
-docker run --rm --gpus all -v ./data:/app/data:ro -v ./output:/app/output --env-file .env document-processor-gpu qwen
-```
-
-#### 最適化を適用して実行
-
-**ネイティブ環境:**
-```bash
-uv run python run_baseline.py data/*.pdf --optimize --timing
-```
-
-**Docker環境:**
-```bash
-# 方法1: bashに入って直接実行（推奨）
+# bashに入って直接実行（推奨）
 docker-compose run --rm document-processor bash
-# コンテナ内で実行:
-python src/run_baseline.py --optimize
 
-# 方法2: 一回限りの実行
-docker run --rm -v ./data:/app/data:ro -v ./output:/app/output --env-file .env document-processor baseline --optimize
+# コンテナ内で任意のモデルを実行:
+python src/run_upstage.py
+python src/run_azure.py
+python src/run_yomitoku.py
+python src/run_gemini.py
+python src/run_claude.py
+
+# GPU対応環境でQwenを実行
+docker-compose run --rm --gpus all document-processor-gpu bash
+python src/run_qwen.py
+```
+
+#### 選択したモデルを組み合わせて実行
+
+`run_selected.py` を使用して、実行するモデルを柔軟に選択できます。
+
+**ネイティブ環境:**
+```bash
+# 全モデル実行
+uv run python src/run_selected.py --models all
+
+# Upstage と Claude のみ実行
+uv run python src/run_selected.py --models upstage claude
+
+# Azure、Gemini、YOMITOKU を実行
+uv run python src/run_selected.py --models azure gemini yomitoku
+
+# カスタム出力ディレクトリを指定
+uv run python src/run_selected.py --models upstage gemini --output-dir custom_output/
+
+# 特定のPDFファイルを指定
+uv run python src/run_selected.py data/sample.pdf --models upstage claude
+```
+
+**Docker環境:**
+```bash
+# bashに入って直接実行（推奨）
+docker-compose run --rm document-processor bash
+
+# コンテナ内で選択モデルを実行:
+python src/run_selected.py --models upstage claude
+python src/run_selected.py --models azure gemini yomitoku
+python src/run_selected.py --models all
 ```
 
 #### カスタム出力ディレクトリを指定
 
 **ネイティブ環境:**
 ```bash
-uv run python run_baseline.py data/*.pdf --output-dir custom_output/ --timing
+uv run python src/run_baseline.py data/*.pdf --output-dir custom_output/
+uv run python src/run_upstage.py --output-dir custom_output/
 ```
 
 **Docker環境:**
@@ -323,6 +371,7 @@ docker run --rm -v ./data:/app/data:ro -v ./custom_output:/app/output --env-file
 ```python
 from src.models.upstage import run_upstage
 from src.models.gemini import run_gemini
+from src.models.claude import run_claude
 from src.preprocessing import extract_pages, split_pdf_pages
 
 # ページを抽出
@@ -333,6 +382,9 @@ result = run_upstage("document.pdf", save=True)
 
 # Geminiでドキュメントを処理
 result = run_gemini("document.pdf", save=True)
+
+# Claudeでドキュメントを処理
+result = run_claude("document.pdf", save=True)
 ```
 
 ## 📊 出力形式
@@ -346,6 +398,7 @@ output/
 │   ├── azure/                  # Azure処理結果
 │   ├── yomitoku/               # YOMITOKU処理結果
 │   ├── gemini/                 # Gemini処理結果
+│   ├── claude/                 # Claude処理結果
 │   ├── qwen25vl/               # Qwen2.5VL処理結果
 │   └── timing_results/         # タイミング計測結果
 │       └── timing_results_20250126_143000.json
@@ -391,6 +444,7 @@ output/
 - **run_azure_di()**: Azure Document Intelligenceで処理
 - **run_yomitoku()**: YOMITOKUでOCR処理
 - **run_gemini()**: Gemini 2.5 Flashで処理
+- **run_claude()**: Claude Sonnet 4.5で処理
 - **run_qwen25vl_optimized()**: 最適化されたQwen2.5-VLで処理
 
 ### ユーティリティ関数

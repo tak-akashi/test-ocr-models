@@ -1,10 +1,10 @@
-"""Gemini 2.5 Flash API wrapper."""
+"""Claude Sonnet 4.5 API wrapper."""
 
 import os
 import io
+import base64
 from pathlib import Path
-from google import genai
-from google.genai import types
+from anthropic import Anthropic
 from pdf2image import convert_from_path
 from src.utils.file_utils import save_markdown
 
@@ -40,9 +40,9 @@ DEFAULT_PROMPT = """
 """
 
 
-def run_gemini(pdf_path, output_dir=Path("../output/gemini"), save=True, prompt=None):
+def run_claude(pdf_path, output_dir=Path("../output/claude"), save=True, prompt=None):
     """
-    Process PDF using Gemini 2.5 Flash.
+    Process PDF using Claude Sonnet 4.5.
 
     Args:
         pdf_path: Path to PDF file
@@ -60,7 +60,12 @@ def run_gemini(pdf_path, output_dir=Path("../output/gemini"), save=True, prompt=
     # Convert all pages to images
     images = convert_from_path(pdf_path, dpi=200)
 
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    # Get API key and validate
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+
+    client = Anthropic(api_key=api_key)
 
     # Process each page
     page_outputs = []
@@ -71,19 +76,35 @@ def run_gemini(pdf_path, output_dir=Path("../output/gemini"), save=True, prompt=
         image.save(img_byte_arr, format='JPEG')
         image_bytes = img_byte_arr.getvalue()
 
+        # Encode to base64 for Anthropic API
+        image_base64 = base64.standard_b64encode(image_bytes).decode('utf-8')
+
         # Process each page individually
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/jpeg',
-                ),
-                prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+        response = client.messages.create(
+            model='claude-sonnet-4-5-20250929',
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+                        }
+                    ]
+                }
             ]
         )
 
-        page_outputs.append(f"<!-- ページ {i+1} -->\n{response.text}")
+        page_outputs.append(f"<!-- ページ {i+1} -->\n{response.content[0].text}")
 
     # Combine results from all pages
     output = "\n\n---\n\n".join(page_outputs)
