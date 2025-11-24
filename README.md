@@ -8,12 +8,14 @@
 
 ### 対応サービス
 
-- **Upstage Document Parse** - 高精度なドキュメント解析API
-- **Azure Document Intelligence** - Microsoftのドキュメント処理サービス
-- **YOMITOKU** - 日本語OCRライブラリ
-- **Gemini 2.5 Flash** - GoogleのマルチモーダルAI
-- **Claude Sonnet 4.5** - Anthropicのマルチモーダル言語モデル
-- **Qwen2.5-VL** - Vision-Language統合モデル
+- **Upstage Document Parse** - 高精度なドキュメント解析API（レイアウト解析 + OCR専用）
+- **Azure Document Intelligence** - Microsoftのドキュメント処理サービス（レイアウト解析 + OCR専用）
+- **YOMITOKU** - 日本語OCRライブラリ（レイアウト解析 + OCR専用）
+- **Gemini 2.5 Flash** - GoogleのマルチモーダルAI（レイアウト解析 + OCR専用）
+- **Claude Sonnet 4.5** - Anthropicのマルチモーダル言語モデル（レイアウト解析 + OCR専用）
+- **Qwen2.5-VL** - Vision-Language統合モデル（レイアウト解析 + OCR専用）
+
+> **Note**: すべてのモデルが、レイアウト解析モードとOCR専用モードの両方に対応しています。
 
 ### 実行環境
 
@@ -141,21 +143,34 @@ src/
 ├── __init__.py
 ├── preprocessing.py              # PDF前処理機能
 ├── run_baseline.py              # ベースラインテスト実行スクリプト
-├── run_models.py                # 選択モデル実行スクリプト
+├── run_models.py                # 選択モデル実行スクリプト（統合）
 ├── run_preprocessing.py         # 前処理実行スクリプト
-├── run_upstage.py               # Upstage単独実行スクリプト
-├── run_azure.py                 # Azure単独実行スクリプト
-├── run_yomitoku.py              # YOMITOKU単独実行スクリプト
-├── run_gemini.py                # Gemini単独実行スクリプト
-├── run_claude.py                # Claude単独実行スクリプト
-├── run_qwen.py                  # Qwen単独実行スクリプト
 ├── models/                      # 各モデルの実装
-│   ├── upstage.py              # Upstage Document Parse
-│   ├── azure_di.py             # Azure Document Intelligence
-│   ├── yomitoku.py             # YOMITOKU OCR
-│   ├── gemini.py               # Gemini 2.5 Flash
-│   ├── claude.py               # Claude Sonnet 4.5
-│   └── qwen.py                 # Qwen VLモデル
+│   ├── upstage/                # Upstage Document Parse
+│   │   ├── __init__.py
+│   │   ├── layout.py          # レイアウト解析モード
+│   │   └── ocr.py             # OCR専用モード
+│   ├── azure/                  # Azure Document Intelligence
+│   │   ├── __init__.py
+│   │   ├── layout.py          # レイアウト解析モード (prebuilt-layout)
+│   │   └── ocr.py             # OCR専用モード (prebuilt-read)
+│   ├── yomitoku/               # YOMITOKU
+│   │   ├── __init__.py
+│   │   ├── layout.py          # レイアウト解析モード (DocumentAnalyzer)
+│   │   └── ocr.py             # OCR専用モード (OCR class)
+│   ├── gemini/                 # Gemini 2.5 Flash
+│   │   ├── __init__.py
+│   │   ├── layout.py          # レイアウト解析モード（詳細プロンプト）
+│   │   └── ocr.py             # OCR専用モード（簡略化プロンプト）
+│   ├── claude/                 # Claude Sonnet 4.5
+│   │   ├── __init__.py
+│   │   ├── layout.py          # レイアウト解析モード（詳細プロンプト）
+│   │   └── ocr.py             # OCR専用モード（簡略化プロンプト）
+│   └── qwen/                   # Qwen VLモデル
+│       ├── __init__.py
+│       ├── common.py          # 共通機能（initialize_models等）
+│       ├── layout.py          # レイアウト解析モード（詳細プロンプト）
+│       └── ocr.py             # OCR専用モード（簡略化プロンプト）
 └── utils/                       # ユーティリティ関数
     ├── html_utils.py           # HTML正規化
     ├── timing.py               # 実行時間計測
@@ -320,14 +335,21 @@ python src/run_qwen.py
 
 **ネイティブ環境:**
 ```bash
-# 全モデル実行
+# 全モデル実行（レイアウト解析 + OCR専用モードを含む、計12種類）
 uv run python src/run_models.py --models all
 
-# Upstage と Claude のみ実行
-uv run python src/run_models.py --models upstage claude
+# レイアウト解析モードのみ実行
+uv run python src/run_models.py --models upstage azure yomitoku claude gemini qwen
 
-# Azure、Gemini、YOMITOKU を実行
-uv run python src/run_models.py --models azure gemini yomitoku
+# OCR専用モードのみ実行
+uv run python src/run_models.py --models upstage-ocr azure-ocr yomitoku-ocr claude-ocr gemini-ocr qwen-ocr
+
+# レイアウト解析とOCR専用を比較
+uv run python src/run_models.py --models upstage upstage-ocr
+uv run python src/run_models.py --models claude claude-ocr
+
+# 複数のモデルを組み合わせ
+uv run python src/run_models.py --models upstage azure-ocr claude gemini-ocr
 
 # カスタム出力ディレクトリを指定
 uv run python src/run_models.py --models upstage gemini --output-dir custom_output/
@@ -343,9 +365,26 @@ docker-compose run --rm document-processor bash
 
 # コンテナ内で選択モデルを実行:
 python src/run_models.py --models upstage claude
-python src/run_models.py --models azure gemini yomitoku
+python src/run_models.py --models azure-ocr yomitoku-ocr gemini-ocr
+python src/run_models.py --models upstage upstage-ocr  # レイアウト vs OCR比較
+python src/run_models.py --models claude claude-ocr    # レイアウト vs OCR比較
 python src/run_models.py --models all
 ```
+
+**利用可能なモデルキー:**
+- `upstage` - Upstage Document Parse (レイアウト解析)
+- `upstage-ocr` - Upstage Document OCR (OCR専用)
+- `azure` - Azure Document Intelligence (レイアウト解析、prebuilt-layout)
+- `azure-ocr` - Azure Document Intelligence (OCR専用、prebuilt-read)
+- `yomitoku` - YOMITOKU (レイアウト解析、DocumentAnalyzer)
+- `yomitoku-ocr` - YOMITOKU (OCR専用、OCR class)
+- `gemini` - Gemini 2.5 Flash (レイアウト解析、詳細プロンプト)
+- `gemini-ocr` - Gemini 2.5 Flash (OCR専用、簡略化プロンプト)
+- `claude` - Claude Sonnet 4.5 (レイアウト解析、詳細プロンプト)
+- `claude-ocr` - Claude Sonnet 4.5 (OCR専用、簡略化プロンプト)
+- `qwen` - Qwen2.5-VL (レイアウト解析、詳細プロンプト)
+- `qwen-ocr` - Qwen2.5-VL (OCR専用、簡略化プロンプト)
+- `all` - 全モデル（12種類：レイアウト + OCR専用）
 
 #### カスタム出力ディレクトリを指定
 
@@ -369,22 +408,55 @@ docker run --rm -v ./data:/app/data:ro -v ./custom_output:/app/output --env-file
 ### プログラムからの使用
 
 ```python
-from src.models.upstage import run_upstage
-from src.models.gemini import run_gemini
-from src.models.claude import run_claude
+# レイアウト解析モデル
+from src.models.upstage import process_document_layout as upstage_layout
+from src.models.azure import process_document_layout as azure_layout
+from src.models.yomitoku import process_document_layout as yomitoku_layout
+
+# OCR専用モデル
+from src.models.upstage import process_document_ocr as upstage_ocr
+from src.models.azure import process_document_ocr as azure_ocr
+from src.models.yomitoku import process_document_ocr as yomitoku_ocr
+
+# その他のモデル（レイアウト + OCR）
+from src.models.gemini import process_document_layout as gemini_layout, process_document_ocr as gemini_ocr
+from src.models.claude import process_document_layout as claude_layout, process_document_ocr as claude_ocr
+from src.models.qwen import process_document_layout as qwen_layout, process_document_ocr as qwen_ocr
 from src.preprocessing import extract_pages, split_pdf_pages
+from pathlib import Path
 
 # ページを抽出
 extracted_pdf = extract_pages("input.pdf", [1, 2, 3])
 
-# Upstageでドキュメントを処理
-result = run_upstage("document.pdf", save=True)
+# Upstageでドキュメントを処理（レイアウト解析）
+result = upstage_layout(Path("document.pdf"), output_dir=Path("output/upstage"), save=True)
 
-# Geminiでドキュメントを処理
-result = run_gemini("document.pdf", save=True)
+# Upstageでドキュメントを処理（OCR専用）
+result = upstage_ocr(Path("document.pdf"), output_dir=Path("output/upstage-ocr"), save=True)
 
-# Claudeでドキュメントを処理
-result = run_claude("document.pdf", save=True)
+# Azureでドキュメントを処理（OCR専用、prebuilt-read）
+result = azure_ocr(Path("document.pdf"), output_dir=Path("output/azure-ocr"), save=True)
+
+# YOMITOKUでドキュメントを処理（OCR専用）
+result = yomitoku_ocr(Path("document.pdf"), output_dir=Path("output/yomitoku-ocr"), save=True)
+
+# Geminiでドキュメントを処理（レイアウト解析）
+result = gemini_layout(Path("document.pdf"), output_dir=Path("output/gemini"), save=True)
+
+# Geminiでドキュメントを処理（OCR専用）
+result = gemini_ocr(Path("document.pdf"), output_dir=Path("output/gemini-ocr"), save=True)
+
+# Claudeでドキュメントを処理（レイアウト解析）
+result = claude_layout(Path("document.pdf"), output_dir=Path("output/claude"), save=True)
+
+# Claudeでドキュメントを処理（OCR専用）
+result = claude_ocr(Path("document.pdf"), output_dir=Path("output/claude-ocr"), save=True)
+
+# Qwenでドキュメントを処理（レイアウト解析）
+result = qwen_layout(Path("document.pdf"), output_dir=Path("output/qwen25vl"), save=True)
+
+# Qwenでドキュメントを処理（OCR専用）
+result = qwen_ocr(Path("document.pdf"), output_dir=Path("output/qwen25vl-ocr"), save=True)
 ```
 
 ## 📊 出力形式
@@ -394,15 +466,40 @@ result = run_claude("document.pdf", save=True)
 ```
 output/
 ├── 20250126-1430/              # 実行日時フォルダ
-│   ├── upstage/                # Upstage処理結果
-│   ├── azure/                  # Azure処理結果
-│   ├── yomitoku/               # YOMITOKU処理結果
-│   ├── gemini/                 # Gemini処理結果
-│   ├── claude/                 # Claude処理結果
-│   ├── qwen25vl/               # Qwen2.5VL処理結果
+│   ├── upstage/                # Upstage処理結果（レイアウト解析）
+│   ├── upstage-ocr/            # Upstage処理結果（OCR専用）
+│   ├── azure/                  # Azure処理結果（レイアウト解析）
+│   ├── azure-ocr/              # Azure処理結果（OCR専用）
+│   ├── yomitoku/               # YOMITOKU処理結果（レイアウト解析）
+│   ├── yomitoku-ocr/           # YOMITOKU処理結果（OCR専用）
+│   ├── gemini/                 # Gemini処理結果（レイアウト解析）
+│   ├── gemini-ocr/             # Gemini処理結果（OCR専用）
+│   ├── claude/                 # Claude処理結果（レイアウト解析）
+│   ├── claude-ocr/             # Claude処理結果（OCR専用）
+│   ├── qwen25vl/               # Qwen2.5VL処理結果（レイアウト解析）
+│   ├── qwen25vl-ocr/           # Qwen2.5VL処理結果（OCR専用）
 │   └── timing_results/         # タイミング計測結果
 │       └── timing_results_20250126_143000.json
 ```
+
+### 各モデルの出力形式
+
+**Upstage（レイアウト解析 & OCR専用）:**
+- HTML または Markdown 形式
+- フォルダ構造を維持した出力
+
+**Azure（レイアウト解析 & OCR専用）:**
+- Markdown 形式
+- `prebuilt-layout`: 表、段落、レイアウト構造を含む
+- `prebuilt-read`: テキスト抽出のみ（高解像度OCR）
+
+**YOMITOKU:**
+- レイアウト解析: HTML + OCR可視化 + レイアウト可視化
+- OCR専用: JSON + OCR可視化のみ
+
+**Gemini/Claude/Qwen:**
+- レイアウト解析: Markdown形式（表、マルチカラム、チャート説明を含む）
+- OCR専用: Markdown形式（読み順テキスト抽出、表は平文）
 
 ### タイミング結果のJSON形式
 
@@ -410,6 +507,7 @@ output/
 {
   "timestamp": "2025-01-26T14:30:00",
   "total_files": 10,
+  "selected_models": ["upstage", "upstage-ocr", "azure", "azure-ocr"],
   "results": [
     {
       "file_path": "data/sample.pdf",
@@ -419,9 +517,17 @@ output/
           "status": "success",
           "execution_time": 2.5
         },
+        "upstage-ocr": {
+          "status": "success",
+          "execution_time": 1.8
+        },
         "azure": {
           "status": "success",
           "execution_time": 3.2
+        },
+        "azure-ocr": {
+          "status": "success",
+          "execution_time": 2.1
         }
       }
     }
@@ -430,6 +536,28 @@ output/
 ```
 
 ## 🛠️ 主要な機能
+
+### レイアウト解析 vs OCR専用モード
+
+このプロジェクトでは、すべてのモデルについて、**レイアウト解析モード**と**OCR専用モード**の両方をサポートしています。
+
+#### レイアウト解析モード
+- 文書の構造（見出し、段落、表、リストなど）を解析
+- テキストの読み順や階層構造を保持
+- より複雑な処理で実行時間が長め
+- 用途: 複雑なドキュメントの構造化データ抽出
+
+#### OCR専用モード
+- テキストの抽出に特化
+- レイアウト情報は最小限
+- より高速な処理
+- 用途: シンプルなテキスト抽出、大量ドキュメントの高速処理
+
+**各サービスの実装:**
+- **Upstage**: `ocr="auto"` → `ocr="force"` に変更
+- **Azure**: `prebuilt-layout` → `prebuilt-read` に変更
+- **YOMITOKU**: `DocumentAnalyzer` → `OCR` クラスに変更
+- **Gemini/Claude/Qwen**: 詳細レイアウトプロンプト → 簡略化OCRプロンプトに変更
 
 ### 前処理機能
 
@@ -440,12 +568,29 @@ output/
 
 ### モデル実行関数
 
-- **run_upstage()**: Upstage Document Parse APIで処理
-- **run_azure_di()**: Azure Document Intelligenceで処理
-- **run_yomitoku()**: YOMITOKUでOCR処理
-- **run_gemini()**: Gemini 2.5 Flashで処理
-- **run_claude()**: Claude Sonnet 4.5で処理
-- **run_qwen25vl_optimized()**: 最適化されたQwen2.5-VLで処理
+**Upstage:**
+- `process_document_layout()`: Document Parse API（レイアウト解析）
+- `process_document_ocr()`: Document OCR API（OCR専用、ocr="force"）
+
+**Azure:**
+- `process_document_layout()`: prebuilt-layout（レイアウト解析）
+- `process_document_ocr()`: prebuilt-read（OCR専用、高解像度）
+
+**YOMITOKU:**
+- `process_document_layout()`: DocumentAnalyzer（レイアウト解析）
+- `process_document_ocr()`: OCR class（OCR専用）
+
+**Gemini:**
+- `process_document_layout()`: Gemini 2.5 Flash（レイアウト解析）
+- `process_document_ocr()`: Gemini 2.5 Flash（OCR専用）
+
+**Claude:**
+- `process_document_layout()`: Claude Sonnet 4.5（レイアウト解析）
+- `process_document_ocr()`: Claude Sonnet 4.5（OCR専用）
+
+**Qwen:**
+- `process_document_layout()`: 最適化されたQwen2.5-VL（レイアウト解析）
+- `process_document_ocr()`: 最適化されたQwen2.5-VL（OCR専用）
 
 ### ユーティリティ関数
 

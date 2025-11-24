@@ -16,13 +16,29 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from src.models.upstage import process_document as process_upstage
-from src.models.azure_di import process_document as process_azure
-from src.models.yomitoku import process_document as process_yomitoku
-from src.models.gemini import process_document as process_gemini
-from src.models.claude import process_document as process_claude
+from src.models.upstage import (
+    process_document_layout as process_upstage_layout,
+    process_document_ocr as process_upstage_ocr
+)
+from src.models.azure import (
+    process_document_layout as process_azure_layout,
+    process_document_ocr as process_azure_ocr
+)
+from src.models.yomitoku import (
+    process_document_layout as process_yomitoku_layout,
+    process_document_ocr as process_yomitoku_ocr
+)
+from src.models.gemini import (
+    process_document_layout as process_gemini_layout,
+    process_document_ocr as process_gemini_ocr
+)
+from src.models.claude import (
+    process_document_layout as process_claude_layout,
+    process_document_ocr as process_claude_ocr
+)
 from src.models.qwen import (
-    process_document as process_qwen,
+    process_document_layout as process_qwen_layout,
+    process_document_ocr as process_qwen_ocr,
     initialize_models,
     optimize_for_speed
 )
@@ -61,7 +77,7 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
     }
 
     # Initialize Qwen models if selected
-    if "qwen" in selected_models:
+    if "qwen" in selected_models or "qwen-ocr" in selected_models:
         print("Qwenモデルを初期化中...")
         initialize_models()
 
@@ -72,34 +88,64 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
     # Define model configurations
     model_configs = {
         "upstage": {
-            "name": "Upstage/Document Parse",
-            "function": process_upstage,
+            "name": "Upstage/Document Parse (Layout)",
+            "function": process_upstage_layout,
             "output_subdir": "upstage"
         },
+        "upstage-ocr": {
+            "name": "Upstage/Document OCR",
+            "function": process_upstage_ocr,
+            "output_subdir": "upstage-ocr"
+        },
         "azure": {
-            "name": "Azure/Document Intelligence",
-            "function": process_azure,
+            "name": "Azure/Document Intelligence (Layout)",
+            "function": process_azure_layout,
             "output_subdir": "azure"
         },
+        "azure-ocr": {
+            "name": "Azure/Document Intelligence (OCR)",
+            "function": process_azure_ocr,
+            "output_subdir": "azure-ocr"
+        },
         "yomitoku": {
-            "name": "YOMITOKU",
-            "function": process_yomitoku,
+            "name": "YOMITOKU (Layout)",
+            "function": process_yomitoku_layout,
             "output_subdir": "yomitoku"
         },
+        "yomitoku-ocr": {
+            "name": "YOMITOKU (OCR)",
+            "function": process_yomitoku_ocr,
+            "output_subdir": "yomitoku-ocr"
+        },
         "gemini": {
-            "name": "Gemini 2.5 Flash",
-            "function": process_gemini,
+            "name": "Gemini 2.5 Flash (Layout)",
+            "function": process_gemini_layout,
             "output_subdir": "gemini"
         },
+        "gemini-ocr": {
+            "name": "Gemini 2.5 Flash (OCR)",
+            "function": process_gemini_ocr,
+            "output_subdir": "gemini-ocr"
+        },
         "claude": {
-            "name": "Claude Sonnet 4.5",
-            "function": process_claude,
+            "name": "Claude Sonnet 4.5 (Layout)",
+            "function": process_claude_layout,
             "output_subdir": "claude"
         },
+        "claude-ocr": {
+            "name": "Claude Sonnet 4.5 (OCR)",
+            "function": process_claude_ocr,
+            "output_subdir": "claude-ocr"
+        },
         "qwen": {
-            "name": "Qwen2.5VL",
-            "function": process_qwen,
+            "name": "Qwen2.5VL (Layout)",
+            "function": process_qwen_layout,
             "output_subdir": "qwen25vl"
+        },
+        "qwen-ocr": {
+            "name": "Qwen2.5VL (OCR)",
+            "function": process_qwen_ocr,
+            "output_subdir": "qwen25vl-ocr"
         }
     }
 
@@ -155,9 +201,11 @@ def main():
     parser.add_argument("input", nargs="*", default=["data"],
                        help="Input PDF/image file(s) or directory (default: data)")
     parser.add_argument("--models", nargs="+",
-                       choices=["upstage", "azure", "yomitoku", "gemini", "claude", "qwen", "all"],
+                       choices=["upstage", "upstage-ocr", "azure", "azure-ocr",
+                               "yomitoku", "yomitoku-ocr", "gemini", "gemini-ocr",
+                               "claude", "claude-ocr", "qwen", "qwen-ocr", "all"],
                        default=["upstage"],
-                       help="Models to run (default: all)")
+                       help="Models to run (default: upstage)")
     parser.add_argument("--output-dir", type=str, default="output",
                        help="Base output directory (default: output)")
     parser.add_argument("--optimize", action="store_true",
@@ -167,7 +215,9 @@ def main():
 
     # Determine which models to run
     if "all" in args.models:
-        selected_models = ["upstage", "azure", "yomitoku", "gemini", "claude", "qwen"]
+        selected_models = ["upstage", "upstage-ocr", "azure", "azure-ocr",
+                          "yomitoku", "yomitoku-ocr", "gemini", "gemini-ocr",
+                          "claude", "claude-ocr", "qwen", "qwen-ocr"]
     else:
         selected_models = args.models
 
