@@ -141,7 +141,7 @@ src/
 ├── __init__.py
 ├── preprocessing.py              # PDF前処理機能
 ├── run_baseline.py              # ベースラインテスト実行スクリプト
-├── run_selected.py              # 選択モデル実行スクリプト
+├── run_models.py                # 選択モデル実行スクリプト
 ├── run_preprocessing.py         # 前処理実行スクリプト
 ├── run_upstage.py               # Upstage単独実行スクリプト
 ├── run_azure.py                 # Azure単独実行スクリプト
@@ -316,24 +316,24 @@ python src/run_qwen.py
 
 #### 選択したモデルを組み合わせて実行
 
-`run_selected.py` を使用して、実行するモデルを柔軟に選択できます。
+`run_models.py` を使用して、実行するモデルを柔軟に選択できます。
 
 **ネイティブ環境:**
 ```bash
 # 全モデル実行
-uv run python src/run_selected.py --models all
+uv run python src/run_models.py --models all
 
 # Upstage と Claude のみ実行
-uv run python src/run_selected.py --models upstage claude
+uv run python src/run_models.py --models upstage claude
 
 # Azure、Gemini、YOMITOKU を実行
-uv run python src/run_selected.py --models azure gemini yomitoku
+uv run python src/run_models.py --models azure gemini yomitoku
 
 # カスタム出力ディレクトリを指定
-uv run python src/run_selected.py --models upstage gemini --output-dir custom_output/
+uv run python src/run_models.py --models upstage gemini --output-dir custom_output/
 
 # 特定のPDFファイルを指定
-uv run python src/run_selected.py data/sample.pdf --models upstage claude
+uv run python src/run_models.py data/sample.pdf --models upstage claude
 ```
 
 **Docker環境:**
@@ -342,9 +342,9 @@ uv run python src/run_selected.py data/sample.pdf --models upstage claude
 docker-compose run --rm document-processor bash
 
 # コンテナ内で選択モデルを実行:
-python src/run_selected.py --models upstage claude
-python src/run_selected.py --models azure gemini yomitoku
-python src/run_selected.py --models all
+python src/run_models.py --models upstage claude
+python src/run_models.py --models azure gemini yomitoku
+python src/run_models.py --models all
 ```
 
 #### カスタム出力ディレクトリを指定

@@ -16,21 +16,22 @@ def get_azure_client():
     )
 
 
-def run_azure_di(pdf_path, output_dir=Path("../output/azure"), save=True):
+def process_document(file_path, output_dir=Path("../output/azure"), save=True):
     """
-    Process PDF using Azure Document Intelligence.
+    Process PDF or image file using Azure Document Intelligence.
 
     Args:
-        pdf_path: Path to PDF file
+        file_path: Path to PDF or image file (supports JPEG, PNG, BMP, TIFF, HEIF)
         output_dir: Output directory for results
         save: Whether to save the output to file
 
     Returns:
         str: Processed content in Markdown format
     """
+    file_path = Path(file_path)
     client = get_azure_client()
 
-    with open(pdf_path, "rb") as file:
+    with open(file_path, "rb") as file:
         poller = client.begin_analyze_document(
             model_id="prebuilt-layout",
             body=file,
@@ -40,8 +41,8 @@ def run_azure_di(pdf_path, output_dir=Path("../output/azure"), save=True):
     result: AnalyzeResult = poller.result()
 
     if save:
-        output_path = output_dir / pdf_path.parent.name
+        output_path = output_dir / file_path.parent.name
         output_path.mkdir(parents=True, exist_ok=True)
-        save_markdown(result.content, pdf_path, output_path)
+        save_markdown(result.content, file_path, output_path)
 
     return result.content

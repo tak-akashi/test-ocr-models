@@ -40,12 +40,12 @@ DEFAULT_PROMPT = """
 """
 
 
-def run_claude(pdf_path, output_dir=Path("../output/claude"), save=True, prompt=None):
+def process_document(file_path, output_dir=Path("../output/claude"), save=True, prompt=None):
     """
-    Process PDF using Claude Sonnet 4.5.
+    Process PDF or image file using Claude Sonnet 4.5.
 
     Args:
-        pdf_path: Path to PDF file
+        file_path: Path to PDF or image file
         output_dir: Output directory for results
         save: Whether to save the output to file
         prompt: Custom prompt for processing (uses default if None)
@@ -53,12 +53,11 @@ def run_claude(pdf_path, output_dir=Path("../output/claude"), save=True, prompt=
     Returns:
         str: Processed content in Markdown format
     """
+    file_path = Path(file_path)
+
     # Use default prompt if not provided
     if prompt is None:
         prompt = DEFAULT_PROMPT
-
-    # Convert all pages to images
-    images = convert_from_path(pdf_path, dpi=200)
 
     # Get API key and validate
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -67,19 +66,26 @@ def run_claude(pdf_path, output_dir=Path("../output/claude"), save=True, prompt=
 
     client = Anthropic(api_key=api_key)
 
-    # Process each page
-    page_outputs = []
+    # Check if input is image or PDF
+    if file_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}:
+        # Process as single image
+        with open(file_path, 'rb') as f:
+            image_bytes = f.read()
 
-    for i, image in enumerate(images):
-        # Convert image to bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='JPEG')
-        image_bytes = img_byte_arr.getvalue()
+        # Determine media type
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.bmp': 'image/bmp',
+            '.tiff': 'image/tiff',
+            '.tif': 'image/tiff'
+        }
+        media_type = media_type_map.get(file_path.suffix.lower(), 'image/jpeg')
 
         # Encode to base64 for Anthropic API
         image_base64 = base64.standard_b64encode(image_bytes).decode('utf-8')
 
-        # Process each page individually
         response = client.messages.create(
             model='claude-sonnet-4-5-20250929',
             max_tokens=4096,
@@ -91,27 +97,69 @@ def run_claude(pdf_path, output_dir=Path("../output/claude"), save=True, prompt=
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": "image/jpeg",
+                                "media_type": media_type,
                                 "data": image_base64,
                             },
                         },
                         {
                             "type": "text",
-                            "text": prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+                            "text": prompt
                         }
                     ]
                 }
             ]
         )
 
-        page_outputs.append(f"<!-- ページ {i+1} -->\n{response.content[0].text}")
+        output = response.content[0].text
+    else:
+        # Process as PDF (convert all pages to images)
+        images = convert_from_path(file_path, dpi=200)
 
-    # Combine results from all pages
-    output = "\n\n---\n\n".join(page_outputs)
+        # Process each page
+        page_outputs = []
+
+        for i, image in enumerate(images):
+            # Convert image to bytes
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='JPEG')
+            image_bytes = img_byte_arr.getvalue()
+
+            # Encode to base64 for Anthropic API
+            image_base64 = base64.standard_b64encode(image_bytes).decode('utf-8')
+
+            # Process each page individually
+            response = client.messages.create(
+                model='claude-sonnet-4-5-20250929',
+                max_tokens=4096,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": image_base64,
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            page_outputs.append(f"<!-- ページ {i+1} -->\n{response.content[0].text}")
+
+        # Combine results from all pages
+        output = "\n\n---\n\n".join(page_outputs)
 
     if save:
-        output_path = output_dir / pdf_path.parent.name
+        output_path = output_dir / file_path.parent.name
         output_path.mkdir(parents=True, exist_ok=True)
-        save_markdown(output, pdf_path, output_path)
+        save_markdown(output, file_path, output_path)
 
     return output

@@ -16,22 +16,28 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from src.models.upstage import run_upstage
-from src.models.azure_di import run_azure_di
-from src.models.yomitoku import run_yomitoku
-from src.models.gemini import run_gemini
-from src.models.claude import run_claude
+from src.models.upstage import process_document as process_upstage
+from src.models.azure_di import process_document as process_azure
+from src.models.yomitoku import process_document as process_yomitoku
+from src.models.gemini import process_document as process_gemini
+from src.models.claude import process_document as process_claude
+from src.models.qwen import (
+    process_document as process_qwen,
+    initialize_models,
+    optimize_for_speed
+)
 from src.utils.timing import measure_time, save_timing_results, print_timing_summary
 
 
-def run_selected_models_timed_with_datetime(file_list, selected_models, base_output_dir=None):
+def run_selected_models_timed_with_datetime(file_list, selected_models, base_output_dir=None, optimize=False):
     """
     Run selected models with timing and datetime-based output folders.
 
     Args:
-        file_list: List of PDF file paths to process
+        file_list: List of document file paths to process (PDFs and images)
         selected_models: List of model names to run
         base_output_dir: Base output directory (defaults to ../output/{timestamp})
+        optimize: Apply speed optimizations (for Qwen models)
 
     Returns:
         dict: Timing data for all processing
@@ -54,32 +60,46 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
         "results": []
     }
 
+    # Initialize Qwen models if selected
+    if "qwen" in selected_models:
+        print("Qwenモデルを初期化中...")
+        initialize_models()
+
+        if optimize:
+            print("速度最適化設定を適用中...")
+            optimize_for_speed()
+
     # Define model configurations
     model_configs = {
         "upstage": {
             "name": "Upstage/Document Parse",
-            "function": run_upstage,
+            "function": process_upstage,
             "output_subdir": "upstage"
         },
         "azure": {
             "name": "Azure/Document Intelligence",
-            "function": run_azure_di,
+            "function": process_azure,
             "output_subdir": "azure"
         },
         "yomitoku": {
             "name": "YOMITOKU",
-            "function": run_yomitoku,
+            "function": process_yomitoku,
             "output_subdir": "yomitoku"
         },
         "gemini": {
             "name": "Gemini 2.5 Flash",
-            "function": run_gemini,
+            "function": process_gemini,
             "output_subdir": "gemini"
         },
         "claude": {
             "name": "Claude Sonnet 4.5",
-            "function": run_claude,
+            "function": process_claude,
             "output_subdir": "claude"
+        },
+        "qwen": {
+            "name": "Qwen2.5VL",
+            "function": process_qwen,
+            "output_subdir": "qwen25vl"
         }
     }
 
@@ -133,41 +153,51 @@ def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(description="Run selected document processing models")
     parser.add_argument("input", nargs="*", default=["data"],
-                       help="Input PDF file(s) or directory (default: data)")
+                       help="Input PDF/image file(s) or directory (default: data)")
     parser.add_argument("--models", nargs="+",
-                       choices=["upstage", "azure", "yomitoku", "gemini", "claude", "all"],
-                       default=["all"],
+                       choices=["upstage", "azure", "yomitoku", "gemini", "claude", "qwen", "all"],
+                       default=["upstage"],
                        help="Models to run (default: all)")
     parser.add_argument("--output-dir", type=str, default="output",
                        help="Base output directory (default: output)")
+    parser.add_argument("--optimize", action="store_true",
+                       help="Apply speed optimizations (for Qwen models)")
 
     args = parser.parse_args()
 
     # Determine which models to run
     if "all" in args.models:
-        selected_models = ["upstage", "azure", "yomitoku", "gemini", "claude"]
+        selected_models = ["upstage", "azure", "yomitoku", "gemini", "claude", "qwen"]
     else:
         selected_models = args.models
 
     print(f"Selected models: {', '.join(selected_models)}\n")
 
-    # Collect PDF files
-    pdf_files = []
+    # Collect document files (PDFs and images)
+    SUPPORTED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
+    document_files = []
+
     for input_path in args.input:
         path = Path(input_path)
-        if path.is_file() and path.suffix.lower() == ".pdf":
-            pdf_files.append(path)
+        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
+            document_files.append(path)
         elif path.is_dir():
-            pdf_files.extend(path.glob("**/*.pdf"))
+            # Search for both lowercase and uppercase extensions
+            for ext in SUPPORTED_EXTENSIONS:
+                document_files.extend(path.glob(f"**/*{ext}"))
+                document_files.extend(path.glob(f"**/*{ext.upper()}"))
 
-    if not pdf_files:
-        print("No PDF files found")
+    if not document_files:
+        print("No PDF or image files found")
         return
 
-    print(f"Found {len(pdf_files)} PDF file(s)")
+    # Count file types
+    pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
+    image_count = len(document_files) - pdf_count
+    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
 
     # Run selected models with timestamp-based output
-    run_selected_models_timed_with_datetime(pdf_files, selected_models, args.output_dir)
+    run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
 
 
 if __name__ == "__main__":

@@ -40,12 +40,12 @@ DEFAULT_PROMPT = """
 """
 
 
-def run_gemini(pdf_path, output_dir=Path("../output/gemini"), save=True, prompt=None):
+def process_document(file_path, output_dir=Path("../output/gemini"), save=True, prompt=None):
     """
-    Process PDF using Gemini 2.5 Flash.
+    Process PDF or image file using Gemini 2.5 Flash.
 
     Args:
-        pdf_path: Path to PDF file
+        file_path: Path to PDF or image file
         output_dir: Output directory for results
         save: Whether to save the output to file
         prompt: Custom prompt for processing (uses default if None)
@@ -53,44 +53,76 @@ def run_gemini(pdf_path, output_dir=Path("../output/gemini"), save=True, prompt=
     Returns:
         str: Processed content in Markdown format
     """
+    file_path = Path(file_path)
+
     # Use default prompt if not provided
     if prompt is None:
         prompt = DEFAULT_PROMPT
 
-    # Convert all pages to images
-    images = convert_from_path(pdf_path, dpi=200)
-
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-    # Process each page
-    page_outputs = []
+    # Check if input is image or PDF
+    if file_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}:
+        # Process as single image
+        with open(file_path, 'rb') as f:
+            image_bytes = f.read()
 
-    for i, image in enumerate(images):
-        # Convert image to bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='JPEG')
-        image_bytes = img_byte_arr.getvalue()
+        # Determine MIME type
+        mime_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.bmp': 'image/bmp',
+            '.tiff': 'image/tiff',
+            '.tif': 'image/tiff'
+        }
+        mime_type = mime_type_map.get(file_path.suffix.lower(), 'image/jpeg')
 
-        # Process each page individually
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
-                    mime_type='image/jpeg',
+                    mime_type=mime_type,
                 ),
-                prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+                prompt
             ]
         )
 
-        page_outputs.append(f"<!-- ページ {i+1} -->\n{response.text}")
+        output = response.text
+    else:
+        # Process as PDF (convert all pages to images)
+        images = convert_from_path(file_path, dpi=200)
 
-    # Combine results from all pages
-    output = "\n\n---\n\n".join(page_outputs)
+        # Process each page
+        page_outputs = []
+
+        for i, image in enumerate(images):
+            # Convert image to bytes
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='JPEG')
+            image_bytes = img_byte_arr.getvalue()
+
+            # Process each page individually
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type='image/jpeg',
+                    ),
+                    prompt + f"\n\n（これはページ {i+1}/{len(images)} です）"
+                ]
+            )
+
+            page_outputs.append(f"<!-- ページ {i+1} -->\n{response.text}")
+
+        # Combine results from all pages
+        output = "\n\n---\n\n".join(page_outputs)
 
     if save:
-        output_path = output_dir / pdf_path.parent.name
+        output_path = output_dir / file_path.parent.name
         output_path.mkdir(parents=True, exist_ok=True)
-        save_markdown(output, pdf_path, output_path)
+        save_markdown(output, file_path, output_path)
 
     return output

@@ -193,12 +193,12 @@ def process_single_page_qwen(model_info, image, page_num, total_pages, prompt=DE
     return f"<!-- ページ {page_num + 1} -->\n{output_text[0]}"
 
 
-def run_qwen25vl_optimized(pdf_path, output_dir=None, save=False, prompt=None):
+def process_document(file_path, output_dir=None, save=False, prompt=None):
     """
-    Process PDF using optimized Qwen2.5-VL.
+    Process PDF or image file using optimized Qwen2.5-VL.
 
     Args:
-        pdf_path: Path to PDF file
+        file_path: Path to PDF or image file
         output_dir: Output directory for results
         save: Whether to save the output to file
         prompt: Custom prompt for processing
@@ -206,6 +206,8 @@ def run_qwen25vl_optimized(pdf_path, output_dir=None, save=False, prompt=None):
     Returns:
         str: Processed content in Markdown format
     """
+    file_path = Path(file_path)
+
     # Use default prompt if not provided
     if prompt is None:
         prompt = DEFAULT_PROMPT
@@ -217,36 +219,43 @@ def run_qwen25vl_optimized(pdf_path, output_dir=None, save=False, prompt=None):
 
     model_info = _models_cache['qwen25vl']
 
-    # Open PDF
-    doc = fitz.open(pdf_path)
-    total_pages = len(doc)
+    # Check if input is image or PDF
+    if file_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}:
+        # Process as single image
+        image = Image.open(file_path)
+        page_output = process_single_page_qwen(model_info, image, 0, 1, prompt)
+        response_content = page_output
+    else:
+        # Process as PDF (existing logic)
+        doc = fitz.open(file_path)
+        total_pages = len(doc)
 
-    # Process each page
-    page_outputs = []
+        # Process each page
+        page_outputs = []
 
-    for page_num in range(total_pages):
-        page = doc[page_num]
-        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x resolution
-        img_data = pix.tobytes("png")
-        image = Image.open(io.BytesIO(img_data))
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x resolution
+            img_data = pix.tobytes("png")
+            image = Image.open(io.BytesIO(img_data))
 
-        # Process page
-        page_output = process_single_page_qwen(model_info, image, page_num, total_pages, prompt)
-        page_outputs.append(page_output)
+            # Process page
+            page_output = process_single_page_qwen(model_info, image, page_num, total_pages, prompt)
+            page_outputs.append(page_output)
 
-    # Combine results
-    response_content = "\n\n---\n\n".join(page_outputs)
+        # Combine results
+        response_content = "\n\n---\n\n".join(page_outputs)
+        doc.close()
 
     if save and output_dir is not None:
-        output_path = output_dir / pdf_path.parent.name
+        output_path = output_dir / file_path.parent.name
         output_path.mkdir(parents=True, exist_ok=True)
-        save_markdown(response_content, pdf_path, output_path)
+        save_markdown(response_content, file_path, output_path)
 
-    doc.close()
     return response_content
 
 
-def run_qwen3vl_optimized(pdf_path, output_dir=None, save=False, prompt=None):
+def process_document_qwen3(pdf_path, output_dir=None, save=False, prompt=None):
     """
     Process PDF using optimized Qwen3-VL.
 
