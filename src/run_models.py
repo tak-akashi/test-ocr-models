@@ -13,8 +13,6 @@ import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
 
 from src.models.upstage import (
     process_document_layout as process_upstage_layout,
@@ -44,6 +42,8 @@ from src.models.qwen import (
 )
 from src.utils.timing import measure_time, save_timing_results, print_timing_summary
 
+# Load environment variables
+load_dotenv()
 
 def run_selected_models_timed_with_datetime(file_list, selected_models, base_output_dir=None, optimize=False):
     """
@@ -195,15 +195,38 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
     return timing_data
 
 
-def main():
-    """Main entry point for CLI."""
-    parser = argparse.ArgumentParser(description="Run selected document processing models")
-    parser.add_argument("input", nargs="*", default=["data"],
+def _collect_document_files(input_paths):
+    """Collect document files from input paths."""
+    SUPPORTED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
+    document_files = []
+
+    for input_path in input_paths:
+        path = Path(input_path)
+        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
+            document_files.append(path)
+        elif path.is_dir():
+            for ext in SUPPORTED_EXTENSIONS:
+                document_files.extend(path.glob(f"**/*{ext}"))
+                document_files.extend(path.glob(f"**/*{ext.upper()}"))
+
+    return document_files
+
+
+# Model name constants
+LAYOUT_MODELS = ["upstage", "azure", "yomitoku", "gemini", "claude", "qwen"]
+OCR_MODELS = ["upstage", "azure", "yomitoku", "gemini", "claude", "qwen"]
+ALL_MODELS = ["upstage", "upstage-ocr", "azure", "azure-ocr",
+              "yomitoku", "yomitoku-ocr", "gemini", "gemini-ocr",
+              "claude", "claude-ocr", "qwen", "qwen-ocr"]
+
+
+def main_layout():
+    """Entry point for layout analysis CLI."""
+    parser = argparse.ArgumentParser(description="Run layout analysis models")
+    parser.add_argument("--input", nargs="*", default=["data"],
                        help="Input PDF/image file(s) or directory (default: data)")
     parser.add_argument("--models", nargs="+",
-                       choices=["upstage", "upstage-ocr", "azure", "azure-ocr",
-                               "yomitoku", "yomitoku-ocr", "gemini", "gemini-ocr",
-                               "claude", "claude-ocr", "qwen", "qwen-ocr", "all"],
+                       choices=LAYOUT_MODELS + ["all"],
                        default=["upstage"],
                        help="Models to run (default: upstage)")
     parser.add_argument("--output-dir", type=str, default="output",
@@ -215,38 +238,93 @@ def main():
 
     # Determine which models to run
     if "all" in args.models:
-        selected_models = ["upstage", "upstage-ocr", "azure", "azure-ocr",
-                          "yomitoku", "yomitoku-ocr", "gemini", "gemini-ocr",
-                          "claude", "claude-ocr", "qwen", "qwen-ocr"]
+        selected_models = LAYOUT_MODELS
+    else:
+        selected_models = args.models
+
+    print(f"[Layout Analysis] Selected models: {', '.join(selected_models)}\n")
+
+    document_files = _collect_document_files(args.input)
+    if not document_files:
+        print("No PDF or image files found")
+        return
+
+    pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
+    image_count = len(document_files) - pdf_count
+    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
+
+    run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
+
+
+def main_ocr():
+    """Entry point for OCR-only CLI."""
+    parser = argparse.ArgumentParser(description="Run OCR-only models")
+    parser.add_argument("--input", nargs="*", default=["data"],
+                       help="Input PDF/image file(s) or directory (default: data)")
+    parser.add_argument("--models", nargs="+",
+                       choices=OCR_MODELS + ["all"],
+                       default=["upstage"],
+                       help="Models to run (default: upstage)")
+    parser.add_argument("--output-dir", type=str, default="output",
+                       help="Base output directory (default: output)")
+    parser.add_argument("--optimize", action="store_true",
+                       help="Apply speed optimizations (for Qwen models)")
+
+    args = parser.parse_args()
+
+    # Determine which models to run and add -ocr suffix
+    if "all" in args.models:
+        selected_models = [f"{m}-ocr" for m in OCR_MODELS]
+    else:
+        selected_models = [f"{m}-ocr" for m in args.models]
+
+    print(f"[OCR Only] Selected models: {', '.join(selected_models)}\n")
+
+    document_files = _collect_document_files(args.input)
+    if not document_files:
+        print("No PDF or image files found")
+        return
+
+    pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
+    image_count = len(document_files) - pdf_count
+    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
+
+    run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
+
+
+def main():
+    """Main entry point for CLI (backward compatible)."""
+    parser = argparse.ArgumentParser(description="Run selected document processing models")
+    parser.add_argument("--input", nargs="*", default=["data"],
+                       help="Input PDF/image file(s) or directory (default: data)")
+    parser.add_argument("--models", nargs="+",
+                       choices=ALL_MODELS + ["all"],
+                       default=["upstage"],
+                       help="Models to run (default: upstage)")
+    parser.add_argument("--output-dir", type=str, default="output",
+                       help="Base output directory (default: output)")
+    parser.add_argument("--optimize", action="store_true",
+                       help="Apply speed optimizations (for Qwen models)")
+
+    args = parser.parse_args()
+
+    # Determine which models to run
+    if "all" in args.models:
+        selected_models = ALL_MODELS
     else:
         selected_models = args.models
 
     print(f"Selected models: {', '.join(selected_models)}\n")
 
-    # Collect document files (PDFs and images)
-    SUPPORTED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
-    document_files = []
-
-    for input_path in args.input:
-        path = Path(input_path)
-        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
-            document_files.append(path)
-        elif path.is_dir():
-            # Search for both lowercase and uppercase extensions
-            for ext in SUPPORTED_EXTENSIONS:
-                document_files.extend(path.glob(f"**/*{ext}"))
-                document_files.extend(path.glob(f"**/*{ext.upper()}"))
-
+    document_files = _collect_document_files(args.input)
     if not document_files:
         print("No PDF or image files found")
         return
 
-    # Count file types
     pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
     image_count = len(document_files) - pdf_count
     print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
 
-    # Run selected models with timestamp-based output
     run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
 
 

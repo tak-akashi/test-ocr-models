@@ -98,6 +98,10 @@ def process_document(file_path, output_dir=Path("../output/yomitoku"), save=True
                 output_path = parent_path / (file_path.stem + f"_{i}.html")
                 results.to_html(str(output_path), img=img)
 
+                # Export JSON results (for post-processing)
+                json_output_path = parent_path / (file_path.stem + f"_{i}.json")
+                results.to_json(str(json_output_path))
+
                 # Save visualization images
                 output_ocr_path = parent_path / (file_path.stem + f"_ocr_{i}.jpg")
                 cv2.imwrite(str(output_ocr_path), ocr_vis)

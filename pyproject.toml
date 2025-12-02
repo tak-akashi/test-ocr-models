@@ -1,3 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [project]
 name = "test-ocr-models"
 version = "0.1.0"
@@ -8,12 +15,14 @@ dependencies = [
     "accelerate>=1.10.1",
     "anthropic>=0.69.0",
     "azure-ai-documentintelligence>=1.0.2",
+    "beautifulsoup4>=4.12.0",
     "chardet>=5.2.0",
     "google-genai>=1.29.0",
     "ipykernel>=6.30.0",
     "jupyterlab>=4.4.5",
     "langchain-anthropic>=0.3.21",
     "langchain-openai>=0.3.35",
+    "Levenshtein>=0.26.1",
     "llama-cloud-services>=0.6.57",
     "matplotlib>=3.10.5",
     "numpy>=2.3.2",
@@ -38,8 +47,16 @@ test = [
     "pytest-mock>=3.10.0",
 ]
 
+[tool.uv]
+package = true
+
 [tool.uv.sources]
 transformers = { git = "https://github.com/huggingface/transformers.git" }
+
+[project.scripts]
+layout = "src.run_models:main_layout"
+ocr = "src.run_models:main_ocr"
+preprocess = "src.run_preprocessing:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
