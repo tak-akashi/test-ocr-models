@@ -209,7 +209,7 @@ def _collect_document_files(input_paths):
                 document_files.extend(path.glob(f"**/*{ext}"))
                 document_files.extend(path.glob(f"**/*{ext.upper()}"))
 
-    return document_files
+    return sorted(document_files)
 
 
 # Model name constants
@@ -233,6 +233,8 @@ def main_layout():
                        help="Base output directory (default: output)")
     parser.add_argument("--optimize", action="store_true",
                        help="Apply speed optimizations (for Qwen models)")
+    parser.add_argument("--n-samples", type=int, default=None,
+                       help="Process only first N files (default: all)")
 
     args = parser.parse_args()
 
@@ -245,6 +247,8 @@ def main_layout():
     print(f"[Layout Analysis] Selected models: {', '.join(selected_models)}\n")
 
     document_files = _collect_document_files(args.input)
+    if args.n_samples is not None:
+        document_files = document_files[:args.n_samples]
     if not document_files:
         print("No PDF or image files found")
         return
@@ -269,6 +273,8 @@ def main_ocr():
                        help="Base output directory (default: output)")
     parser.add_argument("--optimize", action="store_true",
                        help="Apply speed optimizations (for Qwen models)")
+    parser.add_argument("--n-samples", type=int, default=None,
+                       help="Process only first N files (default: all)")
 
     args = parser.parse_args()
 
@@ -281,6 +287,8 @@ def main_ocr():
     print(f"[OCR Only] Selected models: {', '.join(selected_models)}\n")
 
     document_files = _collect_document_files(args.input)
+    if args.n_samples is not None:
+        document_files = document_files[:args.n_samples]
     if not document_files:
         print("No PDF or image files found")
         return
@@ -305,6 +313,8 @@ def main():
                        help="Base output directory (default: output)")
     parser.add_argument("--optimize", action="store_true",
                        help="Apply speed optimizations (for Qwen models)")
+    parser.add_argument("--n-samples", type=int, default=None,
+                       help="Process only first N files (default: all)")
 
     args = parser.parse_args()
 
@@ -317,6 +327,8 @@ def main():
     print(f"Selected models: {', '.join(selected_models)}\n")
 
     document_files = _collect_document_files(args.input)
+    if args.n_samples is not None:
+        document_files = document_files[:args.n_samples]
     if not document_files:
         print("No PDF or image files found")
         return

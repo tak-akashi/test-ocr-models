@@ -1,4 +1,34 @@
-"""PDF preprocessing utilities."""
+"""
+PDF utilities.
+
+処理概要:
+=========
+PDFファイルをOCR処理の前に加工するためのユーティリティ関数群。
+ページ抽出、分割、画像変換などの前処理機能を提供。
+
+主な機能:
+- extract_pages: 指定ページのみを抽出して新しいPDFを作成
+- split_pdf_pages: PDFを1ページずつ個別ファイルに分割
+- display_pdf_pages: PDFページをJupyter等で画像として表示
+- pdf_to_images: PDFの各ページをPNG画像として保存
+
+使用例:
+    from src.utils.pdf_utils import extract_pages, split_pdf_pages, pdf_to_images
+
+    # 特定ページを抽出
+    extract_pages("input.pdf", [1, 3, 5], output_dir="output/")
+
+    # 全ページを個別PDFに分割
+    split_pdf_pages("input.pdf", output_dir="output/")
+
+    # PDFを画像に変換
+    pdf_to_images("input.pdf", output_dir="output/", dpi_scale=2.0)
+
+CLIからの使用:
+    uv run preprocess extract input.pdf --pages 1 2 3
+    uv run preprocess split input.pdf
+    uv run preprocess images input.pdf --dpi-scale 2.0
+"""
 
 import fitz  # PyMuPDF
 import matplotlib.pyplot as plt

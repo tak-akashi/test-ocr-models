@@ -71,6 +71,9 @@ uv run layout --input document.pdf --models upstage
 
 # Qwen最適化オプション付き
 uv run layout --models qwen --optimize
+
+# 最初の10ファイルのみ処理
+uv run layout --models upstage --n-samples 10
 ```
 
 ### OCR専用モード
@@ -84,6 +87,9 @@ uv run ocr --models upstage azure
 
 # Qwen最適化オプション付き
 uv run ocr --models qwen --optimize
+
+# 最初の5ファイルのみ処理
+uv run ocr --models upstage --n-samples 5
 ```
 
 ### PDF前処理
@@ -99,6 +105,22 @@ uv run preprocess split input.pdf
 uv run preprocess images input.pdf --dpi-scale 2.0
 ```
 
+### テキスト抽出
+
+モデル出力からテキストのみを抽出し、CSV/JSON形式で保存します。
+
+```bash
+# 出力ディレクトリからテキストを抽出
+uv run python -m src.extract_texts output/20251202-0942
+
+# カスタム出力先を指定
+uv run python -m src.extract_texts output/20251202-0942 --output-dir results/
+```
+
+出力ファイル:
+- `{model}_texts.csv/json` - モデル別テキスト
+- `combined_texts.csv/json` - 3モデル比較用統合ファイル
+
 ### レガシーコマンド（後方互換）
 
 ```bash
@@ -107,6 +129,9 @@ uv run python -m src.run_models --models all
 
 # 個別指定
 uv run python -m src.run_models --models upstage upstage-ocr azure azure-ocr
+
+# ファイル数を制限
+uv run python -m src.run_models --models upstage --n-samples 10
 ```
 
 ### 利用可能なモデルキー

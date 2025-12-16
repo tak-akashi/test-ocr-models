@@ -9,7 +9,7 @@ from pathlib import Path
 def process_document(
     file_path: Path,
     output_dir: Path = Path("../output/upstage-ocr"),
-    model: str = "ocr-250904",
+    model: str = "ocr-nightly",
     save: bool = True
 ):
     """

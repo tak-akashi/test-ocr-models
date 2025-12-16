@@ -10,7 +10,6 @@ def process_document(
     file_path: Path,
     output_dir: Path = Path("../output/upstage"),
     model: str = "document-parse-nightly",
-    type: str = "html",
     save: bool = True
 ):
     """
@@ -19,11 +18,10 @@ def process_document(
     Args:
         file_path: Path to PDF or image file (supports JPG, JPEG, PNG, BMP, TIFF, HEIC)
         output_dir: Output directory for results
-        type: Output type ("html" or "markdown")
         save: Whether to save the output to file
 
     Returns:
-        str: Processed content (HTML or Markdown)
+        dict: Processed content with "html" and "markdown" keys
     """
     url = "https://api.upstage.ai/v1/document-digitization"
     api_key = os.getenv("UPSTAGE_API_KEY")
@@ -37,19 +35,15 @@ def process_document(
     if response.status_code != 200:
         raise Exception(f"Error: {response.status_code} - {response.text}")
 
-    if type == "html":
-        content = response.json()["content"]["html"]
-    elif type == "markdown":
-        content = response.json()["content"]["markdown"]
-    else:
-        raise ValueError(f"Invalid type: {type}. Must be 'html' or 'markdown'")
+    response_data = response.json()
+    content = response_data["content"]
+    html_content = content["html"]
+    markdown_content = content.get("markdown", "")
 
     if save:
         output_path = output_dir / file_path.parent.name
         output_path.mkdir(parents=True, exist_ok=True)
-        if type == "html":
-            save_html(content, file_path, output_path)
-        elif type == "markdown":
-            save_markdown(content, file_path, output_path)
+        save_html(html_content, file_path, output_path)
+        save_markdown(markdown_content, file_path, output_path)
 
-    return content
+    return {"html": html_content, "markdown": markdown_content}
