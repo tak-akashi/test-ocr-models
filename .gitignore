@@ -21,7 +21,8 @@ logs/*
 !data/
 data/*
 !data/.gitkeep
-data*/
+data?*/
+data_*/
 dataset/
 datasets/
 !assets/
@@ -31,7 +32,8 @@ assets*/
 !output/
 output/*
 !output/.gitkeep
-output*/
+output?*/
+output_*/
 sample/
 temp/
 /temp/
