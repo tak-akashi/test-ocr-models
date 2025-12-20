@@ -1,3 +1,32 @@
+# Document Processing Docker Compose Configuration
+# ================================================
+#
+# Supported Platforms:
+#   - Linux / macOS
+#   - WSL2 (Windows Subsystem for Linux)
+#   - Windows (CMD / PowerShell) - requires Docker Desktop with WSL2 backend
+#
+# Available commands:
+#   layout --models <model>    - Run layout analysis
+#   ocr --models <model>       - Run OCR-only processing
+#   preprocess <subcommand>    - PDF preprocessing utilities
+#
+# Models: upstage, azure, yomitoku, gemini, claude, qwen (or 'all')
+#
+# Examples (Linux / macOS / WSL2):
+#   docker compose run --rm document-processor layout --models all
+#   docker compose run --rm document-processor ocr --models upstage azure
+#   docker compose --profile gpu run --rm document-processor-gpu layout --models qwen --optimize
+#
+# Examples (Windows CMD / PowerShell):
+#   docker compose run --rm document-processor layout --models all
+#   .\scripts\docker-run.ps1 layout -Models all
+#   scripts\docker-run.bat layout all
+#
+# Required environment variables in .env:
+#   UPSTAGE_API_KEY, AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
+#   AZURE_DOCUMENT_INTELLIGENCE_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY
+
 services:
   # Main application service (CPU-only)
   document-processor:
@@ -115,20 +144,13 @@ services:
 
 volumes:
   # Persistent model cache for CPU service
+  # Note: Uses named volume for cross-platform compatibility
   hf-cache:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/.cache/huggingface
+    name: document-processor-hf-cache
 
   # Persistent model cache for GPU service
   hf-cache-gpu:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/.cache/huggingface-gpu
+    name: document-processor-hf-cache-gpu
 
 networks:
   default:

@@ -13,6 +13,12 @@ import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 
+# Import logging utilities first to suppress third-party logs
+from src.utils.logging import (
+    log, log_success, log_warning, log_error,
+    log_processing, log_model_start, log_model_complete,
+    log_model_error, log_file_complete
+)
 
 from src.models.upstage import (
     process_document_layout as process_upstage_layout,
@@ -78,11 +84,11 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
 
     # Initialize Qwen models if selected
     if "qwen" in selected_models or "qwen-ocr" in selected_models:
-        print("Qwenモデルを初期化中...")
+        log("Initializing Qwen models...")
         initialize_models()
 
         if optimize:
-            print("速度最適化設定を適用中...")
+            log("Applying speed optimization settings...")
             optimize_for_speed()
 
     # Define model configurations
@@ -151,7 +157,7 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
 
     for file_idx, file_path in enumerate(file_list):
         file_path = Path(file_path)
-        print(f"Processing {file_path}... ({file_idx + 1}/{len(file_list)})")
+        log_processing(str(file_path), file_idx + 1, len(file_list))
 
         file_result = {
             "file_path": str(file_path),
@@ -162,7 +168,7 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
         # Process each selected model
         for model_key in selected_models:
             config = model_configs[model_key]
-            print(f"  Processing {config['name']}...")
+            log_model_start(config['name'])
 
             try:
                 _, exec_time = measure_time(
@@ -175,23 +181,23 @@ def run_selected_models_timed_with_datetime(file_list, selected_models, base_out
                     "status": "success",
                     "execution_time": exec_time
                 }
-                print(f"    {config['name']} completed in {exec_time:.2f} seconds")
+                log_model_complete(config['name'], exec_time)
             except Exception as e:
                 file_result["models"][model_key] = {
                     "status": "error",
                     "error": str(e),
                     "execution_time": 0
                 }
-                print(f"    {config['name']} failed: {e}")
+                log_model_error(config['name'], str(e))
 
         timing_data["results"].append(file_result)
-        print(f"  File {file_idx + 1} completed\n")
+        log_file_complete(file_idx + 1)
 
     # Always save timing results and print summary
     save_timing_results(timing_data, str(base_output_dir / "timing_results"))
     print_timing_summary(timing_data)
 
-    print(f"\n出力フォルダ: {base_output_dir}")
+    log(f"Output directory: {base_output_dir}")
     return timing_data
 
 
@@ -244,18 +250,18 @@ def main_layout():
     else:
         selected_models = args.models
 
-    print(f"[Layout Analysis] Selected models: {', '.join(selected_models)}\n")
+    log(f"[Layout Analysis] Selected models: {', '.join(selected_models)}")
 
     document_files = _collect_document_files(args.input)
     if args.n_samples is not None:
         document_files = document_files[:args.n_samples]
     if not document_files:
-        print("No PDF or image files found")
+        log_warning("No PDF or image files found")
         return
 
     pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
     image_count = len(document_files) - pdf_count
-    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
+    log(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
 
     run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
 
@@ -284,18 +290,18 @@ def main_ocr():
     else:
         selected_models = [f"{m}-ocr" for m in args.models]
 
-    print(f"[OCR Only] Selected models: {', '.join(selected_models)}\n")
+    log(f"[OCR Only] Selected models: {', '.join(selected_models)}")
 
     document_files = _collect_document_files(args.input)
     if args.n_samples is not None:
         document_files = document_files[:args.n_samples]
     if not document_files:
-        print("No PDF or image files found")
+        log_warning("No PDF or image files found")
         return
 
     pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
     image_count = len(document_files) - pdf_count
-    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
+    log(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
 
     run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
 
@@ -324,18 +330,18 @@ def main():
     else:
         selected_models = args.models
 
-    print(f"Selected models: {', '.join(selected_models)}\n")
+    log(f"Selected models: {', '.join(selected_models)}")
 
     document_files = _collect_document_files(args.input)
     if args.n_samples is not None:
         document_files = document_files[:args.n_samples]
     if not document_files:
-        print("No PDF or image files found")
+        log_warning("No PDF or image files found")
         return
 
     pdf_count = sum(1 for f in document_files if f.suffix.lower() == '.pdf')
     image_count = len(document_files) - pdf_count
-    print(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
+    log(f"Found {len(document_files)} file(s): {pdf_count} PDF(s), {image_count} image(s)")
 
     run_selected_models_timed_with_datetime(document_files, selected_models, args.output_dir, args.optimize)
 

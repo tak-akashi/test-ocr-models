@@ -48,13 +48,14 @@ check_environment() {
     log "Checking environment configuration..."
 
     # Check if .env file exists or environment variables are set
-    if [ ! -f "/app/.env" ] && [ -z "$UPSTAGE_API_KEY" ] && [ -z "$AZURE_DOCUMENT_INTELLIGENCE_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
+    if [ ! -f "/app/.env" ] && [ -z "$UPSTAGE_API_KEY" ] && [ -z "$AZURE_DOCUMENT_INTELLIGENCE_API_KEY" ] && [ -z "$GEMINI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
         warn "No API keys detected. Some processing services may not work."
         warn "Mount your .env file or set environment variables for:"
-        warn "  - UPSTAGE_API_KEY"
-        warn "  - AZURE_DOCUMENT_INTELLIGENCE_API_KEY"
-        warn "  - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
-        warn "  - GEMINI_API_KEY"
+        warn "  - UPSTAGE_API_KEY (Upstage Document Parse)"
+        warn "  - AZURE_DOCUMENT_INTELLIGENCE_API_KEY (Azure)"
+        warn "  - AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT (Azure)"
+        warn "  - GEMINI_API_KEY (Google Gemini)"
+        warn "  - ANTHROPIC_API_KEY (Claude)"
     fi
 
     # Check Python path
@@ -79,20 +80,25 @@ check_gpu() {
 # Handle different command types
 handle_command() {
     case "$1" in
-        "baseline"|"run-baseline")
-            log "Starting baseline document processing..."
+        "layout")
+            log "Starting layout analysis..."
             shift
-            exec python -m src.run_baseline "$@"
+            exec layout "$@"
             ;;
-        "qwen"|"run-qwen")
-            log "Starting Qwen model processing..."
+        "ocr")
+            log "Starting OCR-only processing..."
             shift
-            exec python -m src.run_qwen "$@"
+            exec ocr "$@"
             ;;
-        "preprocessing"|"preprocess")
+        "preprocess"|"preprocessing")
             log "Starting preprocessing utilities..."
             shift
-            exec python -m src.run_preprocessing "$@"
+            exec preprocess "$@"
+            ;;
+        "models")
+            log "Starting legacy model runner..."
+            shift
+            exec python -m src.run_models "$@"
             ;;
         "jupyter"|"jupyter-lab"|"lab")
             log "Starting Jupyter Lab..."
@@ -106,8 +112,8 @@ handle_command() {
             show_help
             ;;
         *)
-            # If command starts with python, uv, or jupyter, execute directly
-            if [[ "$1" =~ ^(python|uv|jupyter) ]]; then
+            # If command starts with python, uv, jupyter, layout, ocr, or preprocess, execute directly
+            if [[ "$1" =~ ^(python|uv|jupyter|layout|ocr|preprocess) ]]; then
                 log "Executing command: $*"
                 exec "$@"
             else
@@ -123,24 +129,46 @@ handle_command() {
 show_help() {
     cat << EOF
 Document Processing Container
+=============================
 
 USAGE:
     docker run [OPTIONS] document-processor [COMMAND] [ARGS...]
 
 COMMANDS:
-    baseline [ARGS]       Run baseline models (Upstage, Azure, YOMITOKU, Gemini)
-    qwen [ARGS]          Run Qwen VL models
-    preprocessing [ARGS] Run PDF preprocessing utilities
+    layout [ARGS]        Run layout analysis models
+    ocr [ARGS]           Run OCR-only models
+    preprocess [ARGS]    Run PDF preprocessing utilities
+    models [ARGS]        Run legacy model runner (backward compatibility)
     jupyter              Start Jupyter Lab server
     bash                 Start interactive bash shell
     help                 Show this help message
 
-EXAMPLES:
-    # Run baseline processing on all files in /app/data
-    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor baseline
+SUPPORTED MODELS:
+    Layout mode:  upstage, azure, yomitoku, gemini, claude, qwen
+    OCR mode:     upstage, azure, yomitoku, gemini, claude, qwen (with -ocr suffix)
+    Use 'all' to run all models
 
-    # Run Qwen models on specific file
-    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor qwen specific.pdf
+EXAMPLES:
+    # Run layout analysis with all models
+    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor layout --models all
+
+    # Run layout analysis with specific models
+    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor layout --models upstage azure
+
+    # Run OCR-only with specific models
+    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor ocr --models upstage gemini
+
+    # Run Qwen with GPU optimization
+    docker run --rm --gpus all -v ./data:/app/data -v ./output:/app/output document-processor-gpu layout --models qwen --optimize
+
+    # Preprocessing - extract specific pages
+    docker run --rm -v ./data:/app/data document-processor preprocess extract input.pdf --pages 1 2 3
+
+    # Preprocessing - split PDF into individual pages
+    docker run --rm -v ./data:/app/data document-processor preprocess split input.pdf
+
+    # Preprocessing - convert PDF to images
+    docker run --rm -v ./data:/app/data document-processor preprocess images input.pdf --dpi-scale 2.0
 
     # Start Jupyter Lab
     docker run --rm -p 8888:8888 -v ./notebook:/app/notebook document-processor jupyter
@@ -148,20 +176,21 @@ EXAMPLES:
     # Interactive shell
     docker run --rm -it -v ./:/app document-processor bash
 
-    # Preprocessing - extract specific pages
-    docker run --rm -v ./data:/app/data document-processor preprocessing extract input.pdf --pages 1 2 3
+    # Legacy: Run specific model variants directly
+    docker run --rm -v ./data:/app/data -v ./output:/app/output document-processor models --models upstage upstage-ocr azure-ocr
 
 VOLUMES:
-    /app/data        - Input PDF files (read-only recommended)
+    /app/data        - Input PDF/image files (read-only recommended)
     /app/output      - Processing results and outputs
     /app/notebook    - Jupyter notebooks
-    /app/.cache      - Model cache directory
+    /app/.cache      - Model cache directory (Hugging Face models)
 
 ENVIRONMENT VARIABLES:
     UPSTAGE_API_KEY                      - Upstage Document Parse API key
     AZURE_DOCUMENT_INTELLIGENCE_API_KEY  - Azure Document Intelligence API key
     AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT - Azure Document Intelligence endpoint
     GEMINI_API_KEY                       - Google Gemini API key
+    ANTHROPIC_API_KEY                    - Anthropic Claude API key
 
 For more information, see the project documentation.
 EOF

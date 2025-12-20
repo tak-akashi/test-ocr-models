@@ -10,7 +10,7 @@ if __name__ == "__main__":
         sys.path.insert(0, str(project_root))
 
 import argparse
-from src.utils.pdf_utils import (
+from src.preprocess.pdf import (
     extract_pages,
     split_pdf_pages,
     display_pdf_pages,

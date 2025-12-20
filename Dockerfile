@@ -48,9 +48,11 @@ RUN apt-get update && apt-get install -y \
 # Create python symlink for python3.12
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+# Install uv package manager (system-wide for all users)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true \
+    && chmod +x /usr/local/bin/uv
 
 # GPU-enabled base (optional)
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS base-gpu
@@ -91,9 +93,11 @@ RUN apt-get update && apt-get install -y \
 
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+# Install uv package manager (system-wide for all users)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true \
+    && chmod +x /usr/local/bin/uv
 
 # Dependencies stage
 FROM base AS dependencies
@@ -101,9 +105,10 @@ ARG ENABLE_GPU=false
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy dependency files (README.md required for package metadata)
 COPY pyproject.toml ./
 COPY uv.lock* ./
+COPY README.md ./
 
 # Install Python dependencies and create virtual environment
 RUN if [ -f "uv.lock" ]; then \
@@ -155,9 +160,10 @@ ARG ENABLE_GPU=true
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy dependency files (README.md required for package metadata)
 COPY pyproject.toml ./
 COPY uv.lock* ./
+COPY README.md ./
 
 # Install Python dependencies with GPU support
 RUN if [ -f "uv.lock" ]; then \

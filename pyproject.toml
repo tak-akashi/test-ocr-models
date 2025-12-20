@@ -60,6 +60,7 @@ transformers = { git = "https://github.com/huggingface/transformers.git" }
 layout = "src.run_models:main_layout"
 ocr = "src.run_models:main_ocr"
 preprocess = "src.run_preprocessing:main"
+postprocess = "src.run_postprocess:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,5 +1,8 @@
 """YOMITOKU OCR processing wrapper."""
 
+# Import logging utilities first to suppress third-party logs
+import src.utils.logging  # noqa: F401 - imported for side effects
+
 import cv2
 import nest_asyncio
 import os

@@ -105,21 +105,42 @@ uv run preprocess split input.pdf
 uv run preprocess images input.pdf --dpi-scale 2.0
 ```
 
-### テキスト抽出
+### テキスト抽出・集計
 
 モデル出力からテキストのみを抽出し、CSV/JSON形式で保存します。
 
 ```bash
-# 出力ディレクトリからテキストを抽出
-uv run python -m src.extract_texts output/20251202-0942
+# 出力ディレクトリからテキストを集計
+uv run postprocess aggregate output/20251202-0942
 
-# カスタム出力先を指定
-uv run python -m src.extract_texts output/20251202-0942 --output-dir results/
+# または直接実行
+uv run python -m src.postprocess.aggregate output/20251202-0942
 ```
 
 出力ファイル:
 - `{model}_texts.csv/json` - モデル別テキスト
 - `combined_texts.csv/json` - 3モデル比較用統合ファイル
+
+### 後処理・評価
+
+OCR結果と正解データを比較し、CER（文字エラー率）を計算します。
+
+```bash
+# Upstage出力の評価
+uv run postprocess upstage output/20251202-0942
+
+# Azure出力の評価
+uv run postprocess azure output/20251202-0942
+
+# Yomitoku OCR出力の評価
+uv run postprocess yomitoku-ocr output/20251202-0942
+
+# Yomitoku Layout出力の評価
+uv run postprocess yomitoku-layout output/20251202-0942
+
+# 汎用OCR結果の評価
+uv run postprocess generic ocr_results.json
+```
 
 ### レガシーコマンド（後方互換）
 
@@ -173,7 +194,7 @@ from src.models.qwen import (
 )
 
 # 前処理
-from src.preprocessing import extract_pages, split_pdf_pages
+from src.preprocess import extract_pages, split_pdf_pages
 
 # 使用例
 result = upstage_layout(Path("document.pdf"), output_dir=Path("output/upstage"), save=True)
@@ -216,8 +237,8 @@ output/
 ```
 src/
 ├── run_models.py           # 統合モデル実行スクリプト
-├── run_preprocessing.py    # 前処理実行スクリプト
-├── preprocessing.py        # PDF前処理機能
+├── run_preprocessing.py    # 前処理CLI
+├── run_postprocess.py      # 後処理CLI
 ├── models/                 # 各モデルの実装
 │   ├── upstage/           # layout.py, ocr.py
 │   ├── azure/             # layout.py, ocr.py
@@ -225,10 +246,27 @@ src/
 │   ├── gemini/            # layout.py, ocr.py
 │   ├── claude/            # layout.py, ocr.py
 │   └── qwen/              # layout.py, ocr.py, common.py
-└── utils/                  # ユーティリティ関数
+├── preprocess/             # 前処理モジュール
+│   ├── pdf.py             # PDF操作（抽出、分割、画像変換）
+│   ├── deskew.py          # 画像傾き補正
+│   └── categorize.py      # カテゴリ別処理
+├── postprocess/            # 後処理・評価モジュール
+│   ├── upstage.py         # Upstage評価
+│   ├── azure.py           # Azure評価
+│   ├── yomitoku_ocr.py    # Yomitoku OCR評価
+│   ├── yomitoku_layout.py # Yomitoku Layout評価
+│   ├── generic_ocr.py     # 汎用OCR評価
+│   └── aggregate.py       # テキスト集計
+└── utils/                  # 汎用ユーティリティ
     ├── timing.py          # 実行時間計測
     ├── file_utils.py      # ファイルI/O
-    └── html_utils.py      # HTML正規化
+    ├── html_utils.py      # HTML正規化
+    └── etl_extractor.py   # ETLデータセット抽出
+
+scripts/                    # Dockerヘルパースクリプト
+├── docker-run.ps1         # Windows PowerShell用
+├── docker-run.bat         # Windows CMD用
+└── docker-run.sh          # Linux/macOS用
 
 data/                       # テスト用PDFファイル
 output/                     # 処理結果の出力先
@@ -273,47 +311,134 @@ clear_model_cache()
 
 ## Docker使用方法
 
+**対応プラットフォーム**: Linux, macOS, Windows (CMD/PowerShell), WSL2
+
+> **Note**: Windows (CMD/PowerShell) で Docker を使用するには、Docker Desktop for Windows と WSL2 バックエンドが必要です。
+
 ### セットアップ
 
 ```bash
-# キャッシュディレクトリを作成
-mkdir -p .cache/huggingface .cache/huggingface-gpu
-
 # 環境変数を設定
 cp .env.sample .env
+# .envファイルを編集してAPIキーを設定
 ```
 
-### 実行方法
+---
+
+### Linux / macOS
 
 ```bash
-# インタラクティブモード（推奨）
-docker-compose run --rm document-processor bash
+# イメージをビルド
+docker compose build
 
-# コンテナ内で実行
-uv run layout --models all
-uv run ocr --models upstage azure
+# インタラクティブシェル
+docker compose run --rm document-processor bash
 
-# GPU対応環境
-docker-compose run --rm --gpus all document-processor-gpu bash
+# レイアウト解析を実行
+docker compose run --rm document-processor layout --models all
+
+# OCR処理を実行
+docker compose run --rm document-processor ocr --models upstage azure
+
+# GPU対応
+docker compose --profile gpu run --rm document-processor-gpu layout --models qwen --optimize
+
+# Jupyter Lab
+docker compose --profile jupyter up jupyter
 ```
 
-### Docker Composeコマンド
+**ヘルパースクリプト:**
+
+```bash
+# 実行権限を付与（初回のみ）
+chmod +x scripts/docker-run.sh
+
+# 使用例
+./scripts/docker-run.sh layout --models all
+./scripts/docker-run.sh ocr --models upstage,azure
+./scripts/docker-run.sh layout --models qwen --gpu --optimize
+./scripts/docker-run.sh jupyter
+./scripts/docker-run.sh shell
+```
+
+---
+
+### WSL2 (Windows Subsystem for Linux)
+
+WSL2ターミナル内では、Linux と同じコマンドが使用できます。
+
+```bash
+# イメージをビルド
+docker compose build
+
+# レイアウト解析を実行
+docker compose run --rm document-processor layout --models all
+
+# ヘルパースクリプト使用
+chmod +x scripts/docker-run.sh
+./scripts/docker-run.sh layout --models all
+```
+
+**GPU使用時の注意:**
+- WSL2でGPUを使用するには、Windows側にNVIDIAドライバーをインストールし、Docker DesktopでWSL2 GPUサポートを有効にする必要があります。
+
+---
+
+### Windows (CMD / PowerShell)
+
+**必要要件:**
+- Docker Desktop for Windows
+- WSL2 バックエンドが有効（Docker Desktop設定で確認）
+- （オプション）NVIDIA GPU + CUDAサポート
+
+**ヘルパースクリプト使用（推奨）:**
+
+```powershell
+# PowerShell
+.\scripts\docker-run.ps1 layout -Models all
+.\scripts\docker-run.ps1 ocr -Models upstage,azure
+.\scripts\docker-run.ps1 layout -Models qwen -GPU -Optimize
+.\scripts\docker-run.ps1 jupyter
+.\scripts\docker-run.ps1 shell
+```
+
+```cmd
+# コマンドプロンプト
+scripts\docker-run.bat layout all
+scripts\docker-run.bat ocr upstage azure
+scripts\docker-run.bat jupyter
+scripts\docker-run.bat shell
+```
+
+**直接コマンド:**
+
+```powershell
+# PowerShell / CMD 共通
+docker compose build
+docker compose run --rm document-processor layout --models all
+docker compose run --rm document-processor ocr --models upstage azure
+docker compose --profile jupyter up jupyter
+```
+
+---
+
+### Docker Compose 共通コマンド
 
 ```bash
 # CPU処理用コンテナを起動
-docker-compose up -d document-processor
+docker compose up -d document-processor
 
-# GPU処理用コンテナを起動（NVIDIA Docker必須）
-docker-compose --profile gpu up -d document-processor-gpu
+# GPU処理用コンテナを起動（NVIDIA Container Toolkit必須）
+docker compose --profile gpu up -d document-processor-gpu
 
 # Jupyter Lab開発環境を起動
-docker-compose --profile jupyter up -d jupyter
+docker compose --profile jupyter up -d jupyter
 
 # ログを確認
-docker-compose logs -f document-processor
+docker compose logs -f document-processor
 
 # コンテナを停止・削除
-docker-compose down
+docker compose down
 ```
 
 ## 開発
@@ -340,25 +465,63 @@ uv sync
 
 ## トラブルシューティング
 
-### APIキーエラー
+### 共通
+
+#### APIキーエラー
 ```
 Error: 401 - Unauthorized
 ```
 → `.env`ファイルのAPIキーを確認してください
 
-### メモリ不足（Qwenモデル使用時）
+#### メモリ不足（Qwenモデル使用時）
 ```
 RuntimeError: CUDA out of memory
 ```
-→ `clear_model_cache()`を実行するか、バッチサイズを減らしてください
+→ `clear_model_cache()`を実行するか、`--n-samples`でファイル数を制限してください
 
-### 権限エラー（Docker）
+### Linux/macOS
+
+#### 権限エラー（Docker）
 ```bash
 sudo chown -R $USER:$USER ./data ./output ./.cache
 ```
 
-### GPU認識エラー（Docker）
+#### GPU認識エラー（Docker）
 ```bash
 # GPU動作確認
 docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 ```
+
+### WSL2
+
+#### 改行コードエラー
+```
+/bin/bash^M: bad interpreter
+```
+→ Windows側で以下を実行してから再クローン:
+```bash
+git config --global core.autocrlf input
+```
+
+#### GPUが認識されない
+→ Windows側にNVIDIA ドライバー（CUDA対応）をインストールし、Docker Desktop設定でWSL2 GPUサポートを有効化
+
+### Windows (CMD / PowerShell)
+
+#### Docker Desktop起動エラー
+→ WSL2が有効かつ最新であることを確認:
+```powershell
+wsl --update
+wsl --set-default-version 2
+```
+
+#### ボリュームマウントエラー
+→ Docker Desktop設定 > Resources > File Sharing で対象ドライブへのアクセスを許可
+
+#### PowerShell実行ポリシーエラー
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+#### GPUがコンテナで認識されない
+→ NVIDIA Container Toolkitをインストールし、Docker Desktop設定でGPUサポートを有効化
