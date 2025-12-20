@@ -135,7 +135,7 @@ RUN mkdir -p $HF_HOME && chown -R appuser:appuser $HF_HOME
 # Copy application code
 COPY --chown=appuser:appuser src/ /app/src/
 COPY --chown=appuser:appuser notebook/ /app/notebook/
-COPY --chown=appuser:appuser CLAUDE.md README.md /app/
+COPY --chown=appuser:appuser README.md /app/
 
 # Copy entrypoint script
 COPY --chown=appuser:appuser entrypoint.sh /app/
@@ -187,7 +187,7 @@ RUN mkdir -p $HF_HOME && chown -R appuser:appuser $HF_HOME
 # Copy application code
 COPY --chown=appuser:appuser src/ /app/src/
 COPY --chown=appuser:appuser notebook/ /app/notebook/
-COPY --chown=appuser:appuser CLAUDE.md README.md /app/
+COPY --chown=appuser:appuser README.md /app/
 
 # Copy entrypoint script
 COPY --chown=appuser:appuser entrypoint.sh /app/
