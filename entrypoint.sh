@@ -35,9 +35,21 @@ init_directories() {
     # Ensure required directories exist
     mkdir -p /app/data /app/output /app/notebook /app/.cache/huggingface
 
+    # Fix permissions for mounted volumes (only if running as root during init)
+    if [ "$(id -u)" -eq 0 ]; then
+        chown -R appuser:appuser /app/output /app/notebook /app/.cache/huggingface 2>/dev/null || true
+    fi
+
     # Check if data directory is empty and warn
     if [ -z "$(ls -A /app/data 2>/dev/null)" ]; then
         warn "Data directory is empty. Mount your PDF files to /app/data"
+    fi
+
+    # Test write permissions
+    if [ ! -w /app/output ]; then
+        error "Output directory is not writable. Please check volume mount permissions."
+        warn "Try: sudo chown -R \$USER:\$USER ./output"
+        exit 1
     fi
 
     success "Directory initialization completed"
@@ -79,34 +91,74 @@ check_gpu() {
 
 # Handle different command types
 handle_command() {
+    # Switch to appuser if running as root
+    local SU_PREFIX=""
+    if [ "$(id -u)" -eq 0 ]; then
+        SU_PREFIX="su-exec appuser"
+        # If su-exec not available, use gosu or runuser
+        if ! command -v su-exec &> /dev/null; then
+            if command -v gosu &> /dev/null; then
+                SU_PREFIX="gosu appuser"
+            elif command -v runuser &> /dev/null; then
+                SU_PREFIX="runuser -u appuser --"
+            else
+                SU_PREFIX="su appuser -c"
+            fi
+        fi
+    fi
+
     case "$1" in
         "layout")
             log "Starting layout analysis..."
             shift
-            exec layout "$@"
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX layout "$@"
+            else
+                exec layout "$@"
+            fi
             ;;
         "ocr")
             log "Starting OCR-only processing..."
             shift
-            exec ocr "$@"
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX ocr "$@"
+            else
+                exec ocr "$@"
+            fi
             ;;
         "preprocess"|"preprocessing")
             log "Starting preprocessing utilities..."
             shift
-            exec preprocess "$@"
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX preprocess "$@"
+            else
+                exec preprocess "$@"
+            fi
             ;;
         "models")
             log "Starting legacy model runner..."
             shift
-            exec python -m src.run_models "$@"
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX python -m src.run_models "$@"
+            else
+                exec python -m src.run_models "$@"
+            fi
             ;;
         "jupyter"|"jupyter-lab"|"lab")
             log "Starting Jupyter Lab..."
-            exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+            else
+                exec jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+            fi
             ;;
         "bash"|"sh"|"shell")
             log "Starting interactive shell..."
-            exec bash
+            if [ -n "$SU_PREFIX" ]; then
+                exec $SU_PREFIX bash
+            else
+                exec bash
+            fi
             ;;
         "help"|"--help"|"-h")
             show_help
@@ -115,7 +167,11 @@ handle_command() {
             # If command starts with python, uv, jupyter, layout, ocr, or preprocess, execute directly
             if [[ "$1" =~ ^(python|uv|jupyter|layout|ocr|preprocess) ]]; then
                 log "Executing command: $*"
-                exec "$@"
+                if [ -n "$SU_PREFIX" ]; then
+                    exec $SU_PREFIX "$@"
+                else
+                    exec "$@"
+                fi
             else
                 log "Unknown command: $1"
                 show_help

@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     curl \
     git \
+    # User switching utilities
+    gosu \
     # PDF processing dependencies
     poppler-utils \
     libmupdf-dev \
@@ -76,6 +78,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     curl \
     git \
+    gosu \
     poppler-utils \
     libmupdf-dev \
     libopencv-dev \
@@ -111,6 +114,8 @@ COPY uv.lock* ./
 COPY README.md ./
 
 # Install Python dependencies and create virtual environment
+# Increase timeout for large packages (CUDA libraries)
+ENV UV_HTTP_TIMEOUT=300
 RUN if [ -f "uv.lock" ]; then \
         uv sync --frozen; \
     else \
@@ -125,8 +130,10 @@ FROM dependencies AS runtime
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
-RUN mkdir -p /app /app/data /app/output /app/notebook && \
-    chown -R appuser:appuser /app
+
+# Create directories with correct ownership (avoid chown on existing .venv)
+RUN mkdir -p /app/data /app/output /app/notebook && \
+    chown -R appuser:appuser /app/data /app/output /app/notebook
 
 # Set up Hugging Face cache directory
 ENV HF_HOME=/app/.cache/huggingface
@@ -138,11 +145,11 @@ COPY --chown=appuser:appuser notebook/ /app/notebook/
 COPY --chown=appuser:appuser README.md /app/
 
 # Copy entrypoint script
-COPY --chown=appuser:appuser entrypoint.sh /app/
+COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Note: We stay as root to allow entrypoint to fix permissions
+# The entrypoint will switch to appuser after fixing permissions
 WORKDIR /app
 
 # Expose Jupyter port
@@ -166,6 +173,8 @@ COPY uv.lock* ./
 COPY README.md ./
 
 # Install Python dependencies with GPU support
+# Increase timeout for large packages (CUDA libraries)
+ENV UV_HTTP_TIMEOUT=300
 RUN if [ -f "uv.lock" ]; then \
         uv sync --frozen; \
     else \
@@ -177,8 +186,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
-RUN mkdir -p /app /app/data /app/output /app/notebook && \
-    chown -R appuser:appuser /app
+
+# Create directories with correct ownership (avoid chown on existing .venv)
+RUN mkdir -p /app/data /app/output /app/notebook && \
+    chown -R appuser:appuser /app/data /app/output /app/notebook
 
 # Set up Hugging Face cache directory
 ENV HF_HOME=/app/.cache/huggingface
@@ -190,11 +201,11 @@ COPY --chown=appuser:appuser notebook/ /app/notebook/
 COPY --chown=appuser:appuser README.md /app/
 
 # Copy entrypoint script
-COPY --chown=appuser:appuser entrypoint.sh /app/
+COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Note: We stay as root to allow entrypoint to fix permissions
+# The entrypoint will switch to appuser after fixing permissions
 WORKDIR /app
 
 # Expose Jupyter port
