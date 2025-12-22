@@ -4,6 +4,7 @@
 import src.utils.logging  # noqa: F401 - imported for side effects
 
 import cv2
+from src.utils.device import get_device
 import nest_asyncio
 import os
 import tempfile
@@ -56,7 +57,8 @@ def process_document(file_path, output_dir=Path("../output/yomitoku-ocr"), save=
     Returns:
         list: List of processing results for each page/image
     """
-    ocr = OCR(visualize=True, device="cpu")  # OCR-only mode
+    device = get_device()
+    ocr = OCR(visualize=True, device=device)
     file_path = Path(file_path)
 
     temp_png_path = None

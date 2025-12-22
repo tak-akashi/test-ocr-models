@@ -441,6 +441,124 @@ docker compose logs -f document-processor
 docker compose down
 ```
 
+---
+
+## GPU使用方法（WSL2対応）
+
+### 前提条件
+
+- NVIDIA GPU（CUDA対応）
+- WSL2環境: Windows側にNVIDIAドライバーがインストール済み
+- Docker DesktopでGPUサポートが有効
+
+### GPU対応確認
+
+```bash
+# GPUが認識されているか確認
+nvidia-smi
+
+# DockerからGPUにアクセスできるか確認
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+```
+
+### 簡易スクリプトを使用（推奨）
+
+プロジェクトルートに`run-gpu.sh`スクリプトが用意されています。GPUが利用可能な場合は自動的にGPU版を使用し、そうでない場合はCPU版にフォールバックします。
+
+```bash
+# GPUで実行（自動検出）
+./run-gpu.sh ocr --models yomitoku upstage
+
+# レイアウト解析をGPUで実行
+./run-gpu.sh layout --models qwen yomitoku azure --optimize
+
+# すべてのモデルをGPUで実行
+./run-gpu.sh ocr --models all
+```
+
+### Docker Composeで直接指定
+
+```bash
+# GPU版イメージをビルド
+docker compose build document-processor-gpu
+
+# GPU版でOCR実行（複数モデル）
+docker compose --profile gpu run --rm document-processor-gpu ocr --models yomitoku upstage azure
+
+# GPU版でレイアウト解析（最適化オプション付き）
+docker compose --profile gpu run --rm document-processor-gpu layout --models qwen yomitoku --optimize
+
+# GPU版ですべてのモデルを実行
+docker compose --profile gpu run --rm document-processor-gpu layout --models all
+```
+
+### GPUを活用するモデル
+
+| モデル | GPU活用 | 説明 |
+|--------|---------|------|
+| **YOMITOKU** | ✅ Yes | PyTorchベースのOCRモデル。GPUで大幅に高速化 |
+| **Qwen2.5-VL** | ✅ Yes | Vision-Languageモデル。GPUで大幅に高速化（`--optimize`推奨） |
+| Upstage | ❌ No | API呼び出しのみ（GPUは不要） |
+| Azure | ❌ No | API呼び出しのみ（GPUは不要） |
+| Gemini | ❌ No | API呼び出しのみ（GPUは不要） |
+| Claude | ❌ No | API呼び出しのみ（GPUは不要） |
+
+### 複数モデルの同時実行
+
+YOMITOKUやQwenなどのローカルモデル（GPU使用）と、UpstageやAzureなどのAPIベースモデルを同時に実行できます：
+
+```bash
+# YOMITOKUをGPUで実行 + Upstage/AzureをAPI経由で実行
+./run-gpu.sh ocr --models yomitoku upstage azure
+
+# QwenとYOMITOKUをGPUで + 他のAPIモデルも実行
+./run-gpu.sh layout --models qwen yomitoku gemini claude --optimize
+```
+
+**実行順序**: 指定した順番で順次実行されます。GPU使用モデルとAPI呼び出しモデルが混在していても問題ありません。
+
+### パフォーマンスヒント
+
+```bash
+# Qwen使用時は --optimize オプションを推奨（GPU最適化）
+./run-gpu.sh layout --models qwen --optimize
+
+# ファイル数を制限してテスト実行
+./run-gpu.sh ocr --models yomitoku --n-samples 5
+
+# メモリ不足を避けるため、大量処理時はモデルを分けて実行
+./run-gpu.sh ocr --models yomitoku qwen
+./run-gpu.sh ocr --models upstage azure gemini
+```
+
+### トラブルシューティング
+
+#### GPUメモリ不足エラー
+```
+RuntimeError: CUDA out of memory
+```
+
+対処法:
+- `--n-samples`でファイル数を制限
+- QwenとYOMITOKUを同時に実行せず、分けて実行
+- 他のGPU使用プロセスを終了
+
+#### DockerがGPUを認識しない
+
+WSL2の場合:
+```bash
+# Windows側でNVIDIAドライバーを確認
+# Docker Desktop > Settings > Resources > WSL Integration でGPUサポートを有効化
+```
+
+Linux/macOSの場合:
+```bash
+# NVIDIA Container Toolkitをインストール
+# https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+```
+
+---
+
 ## 開発
 
 ### テストの実行

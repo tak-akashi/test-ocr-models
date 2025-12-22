@@ -16,12 +16,16 @@ def _select_device_and_dtype():
     if torch.backends.mps.is_available():
         device = torch.device("mps")
         dtype = torch.float16
+        print("Apple Silicon GPU detected - using MPS")
     elif torch.cuda.is_available():
         device = torch.device("cuda")
         dtype = torch.float16
+        gpu_name = torch.cuda.get_device_name(0)
+        print(f"GPU detected: {gpu_name} - using CUDA")
     else:
         device = torch.device("cpu")
         dtype = torch.float32
+        print("No GPU detected - using CPU")
     return device, dtype
 
 
