@@ -23,6 +23,9 @@ data/*
 !data/.gitkeep
 data?*/
 data_*/
+!notebook/
+notebook/*
+!notebook/.gitkeep
 dataset/
 datasets/
 !assets/
