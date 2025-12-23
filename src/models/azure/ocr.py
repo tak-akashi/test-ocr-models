@@ -1,18 +1,21 @@
 """Azure Document Intelligence OCR wrapper (OCR-only mode using prebuilt-read model)."""
 
-import os
 from pathlib import Path
-from azure.core.credentials import AzureKeyCredential
+
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeResult, DocumentContentFormat
+from azure.core.credentials import AzureKeyCredential
+
+from src.config import get_settings
 from src.utils.file_utils import save_markdown
 
 
 def get_azure_client():
     """Get Azure Document Intelligence client."""
+    settings = get_settings()
     return DocumentIntelligenceClient(
-        endpoint=os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"),
-        credential=AzureKeyCredential(os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY"))
+        endpoint=settings.azure.endpoint,
+        credential=AzureKeyCredential(settings.azure.api_key)
     )
 
 
@@ -32,12 +35,13 @@ def process_document(file_path, output_dir=Path("../output/azure-ocr"), save=Tru
     Returns:
         str: Processed content in Markdown format
     """
+    settings = get_settings()
     file_path = Path(file_path)
     client = get_azure_client()
 
     with open(file_path, "rb") as file:
         poller = client.begin_analyze_document(
-            model_id="prebuilt-read",  # OCR-only model (not prebuilt-layout)
+            model_id=settings.azure.ocr_model,  # OCR-only model (not prebuilt-layout)
             body=file,
             output_content_format=DocumentContentFormat.MARKDOWN
         )

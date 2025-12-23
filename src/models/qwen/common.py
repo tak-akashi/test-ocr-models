@@ -2,10 +2,12 @@
 
 import torch
 from pathlib import Path
-from PIL import Image
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-from qwen_vl_utils import process_vision_info
 
+from PIL import Image
+from qwen_vl_utils import process_vision_info
+from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+
+from src.config import get_settings
 
 # Global model cache
 _models_cache = {}
@@ -31,7 +33,10 @@ def _select_device_and_dtype():
 
 def download_models():
     """Download and cache Qwen models."""
-    print("Qwen2.5VLモデルをダウンロード中...")
+    settings = get_settings()
+    model_name = settings.qwen.model
+
+    print(f"Qwenモデルをダウンロード中: {model_name}...")
     device, dtype = _select_device_and_dtype()
 
     # Check for accelerate availability
@@ -47,18 +52,18 @@ def download_models():
     try:
         if use_device_map and device.type != "cpu":
             qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                "Qwen/Qwen2.5-VL-7B-Instruct",
+                model_name,
                 dtype=dtype,
                 device_map="auto"
             )
         else:
             qwen25vl_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                "Qwen/Qwen2.5-VL-7B-Instruct",
+                model_name,
                 dtype=dtype
             )
             qwen25vl_model = qwen25vl_model.to(device)
 
-        qwen25vl_processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+        qwen25vl_processor = AutoProcessor.from_pretrained(model_name)
 
         _models_cache['qwen25vl'] = {
             'model': qwen25vl_model,
@@ -117,6 +122,7 @@ def get_model_info():
 
 def process_single_page_qwen(model_info, image, page_num, total_pages, prompt):
     """Process a single page using Qwen model."""
+    settings = get_settings()
     model = model_info['model']
     processor = model_info['processor']
     device = model_info['device']
@@ -150,9 +156,9 @@ def process_single_page_qwen(model_info, image, page_num, total_pages, prompt):
     with torch.no_grad():
         generated_ids = model.generate(
             **inputs,
-            max_new_tokens=2048,
-            do_sample=False,
-            temperature=0.1,
+            max_new_tokens=settings.qwen.max_new_tokens,
+            do_sample=settings.qwen.do_sample,
+            temperature=settings.qwen.temperature,
             pad_token_id=processor.tokenizer.eos_token_id,
             use_cache=True
         )

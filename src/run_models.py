@@ -11,7 +11,6 @@ if __name__ == "__main__":
 
 import argparse
 from datetime import datetime
-from dotenv import load_dotenv
 
 # Import logging utilities first to suppress third-party logs
 from src.utils.logging import (
@@ -48,8 +47,6 @@ from src.models.qwen import (
 )
 from src.utils.timing import measure_time, save_timing_results, print_timing_summary
 
-# Load environment variables
-load_dotenv()
 
 def run_selected_models_timed_with_datetime(file_list, selected_models, base_output_dir=None, optimize=False):
     """

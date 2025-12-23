@@ -1,11 +1,13 @@
 """Claude Sonnet 4.5 API wrapper - OCR-only Mode."""
 
-import os
-import io
 import base64
+import io
 from pathlib import Path
+
 from anthropic import Anthropic
 from pdf2image import convert_from_path
+
+from src.config import get_settings
 from src.utils.file_utils import save_markdown
 
 
@@ -38,13 +40,14 @@ def process_document(file_path, output_dir=Path("../output/claude-ocr"), save=Tr
         str: Processed content in Markdown format
     """
     file_path = Path(file_path)
+    settings = get_settings()
 
     # Use default prompt if not provided
     if prompt is None:
         prompt = DEFAULT_PROMPT
 
     # Get API key and validate
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = settings.claude.api_key
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 
@@ -71,8 +74,8 @@ def process_document(file_path, output_dir=Path("../output/claude-ocr"), save=Tr
         image_base64 = base64.standard_b64encode(image_bytes).decode('utf-8')
 
         response = client.messages.create(
-            model='claude-sonnet-4-5-20250929',
-            max_tokens=4096,
+            model=settings.claude.model,
+            max_tokens=settings.claude.max_tokens,
             messages=[
                 {
                     "role": "user",
@@ -97,7 +100,7 @@ def process_document(file_path, output_dir=Path("../output/claude-ocr"), save=Tr
         output = response.content[0].text
     else:
         # Process as PDF (convert all pages to images)
-        images = convert_from_path(file_path, dpi=200)
+        images = convert_from_path(file_path, dpi=settings.claude.dpi)
 
         # Process each page
         page_outputs = []
@@ -113,8 +116,8 @@ def process_document(file_path, output_dir=Path("../output/claude-ocr"), save=Tr
 
             # Process each page individually
             response = client.messages.create(
-                model='claude-sonnet-4-5-20250929',
-                max_tokens=4096,
+                model=settings.claude.model,
+                max_tokens=settings.claude.max_tokens,
                 messages=[
                     {
                         "role": "user",

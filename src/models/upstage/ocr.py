@@ -1,15 +1,16 @@
 """Upstage Document OCR API wrapper (OCR-only mode)."""
 
 import json
-import os
 import requests
 from pathlib import Path
+
+from src.config import get_settings
 
 
 def process_document(
     file_path: Path,
     output_dir: Path = Path("../output/upstage-ocr"),
-    model: str = "ocr-nightly",
+    model: str | None = None,
     save: bool = True
 ):
     """
@@ -21,14 +22,16 @@ def process_document(
     Args:
         file_path: Path to PDF or image file (supports JPG, JPEG, PNG, BMP, TIFF, HEIC)
         output_dir: Output directory for results
-        model: Model to use (default: ocr)
+        model: Model to use (default: from config)
         save: Whether to save the output to file
 
     Returns:
         dict: OCR result containing text and page information
     """
-    url = "https://api.upstage.ai/v1/document-digitization"
-    api_key = os.getenv("UPSTAGE_API_KEY")
+    settings = get_settings()
+    url = settings.upstage.endpoint
+    api_key = settings.upstage.api_key
+    model = model or settings.upstage.ocr_model
     headers = {"Authorization": f"Bearer {api_key}"}
 
     with open(file_path, "rb") as f:

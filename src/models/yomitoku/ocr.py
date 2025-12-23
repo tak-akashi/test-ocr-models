@@ -3,15 +3,18 @@
 # Import logging utilities first to suppress third-party logs
 import src.utils.logging  # noqa: F401 - imported for side effects
 
-import cv2
-from src.utils.device import get_device
-import nest_asyncio
 import os
 import tempfile
 from pathlib import Path
+
+import cv2
+import nest_asyncio
 from PIL import Image
 from yomitoku import OCR  # OCR-only class (not DocumentAnalyzer)
 from yomitoku.data.functions import load_pdf
+
+from src.config import get_settings
+from src.utils.device import get_device
 
 # Enable asyncio in Jupyter environments
 nest_asyncio.apply()
@@ -57,8 +60,9 @@ def process_document(file_path, output_dir=Path("../output/yomitoku-ocr"), save=
     Returns:
         list: List of processing results for each page/image
     """
+    settings = get_settings()
     device = get_device()
-    ocr = OCR(visualize=True, device=device)
+    ocr = OCR(visualize=settings.yomitoku.visualize, device=device)
     file_path = Path(file_path)
 
     temp_png_path = None

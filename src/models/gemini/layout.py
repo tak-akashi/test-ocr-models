@@ -1,11 +1,13 @@
 """Gemini 2.5 Flash API wrapper - Layout Analysis Mode."""
 
-import os
 import io
 from pathlib import Path
+
 from google import genai
 from google.genai import types
 from pdf2image import convert_from_path
+
+from src.config import get_settings
 from src.utils.file_utils import save_markdown
 
 
@@ -54,12 +56,13 @@ def process_document(file_path, output_dir=Path("../output/gemini"), save=True, 
         str: Processed content in Markdown format
     """
     file_path = Path(file_path)
+    settings = get_settings()
 
     # Use default prompt if not provided
     if prompt is None:
         prompt = DEFAULT_PROMPT
 
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = genai.Client(api_key=settings.gemini.api_key)
 
     # Check if input is image or PDF
     if file_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}:
@@ -79,7 +82,7 @@ def process_document(file_path, output_dir=Path("../output/gemini"), save=True, 
         mime_type = mime_type_map.get(file_path.suffix.lower(), 'image/jpeg')
 
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model=settings.gemini.model,
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
@@ -92,7 +95,7 @@ def process_document(file_path, output_dir=Path("../output/gemini"), save=True, 
         output = response.text
     else:
         # Process as PDF (convert all pages to images)
-        images = convert_from_path(file_path, dpi=200)
+        images = convert_from_path(file_path, dpi=settings.gemini.dpi)
 
         # Process each page
         page_outputs = []
@@ -105,7 +108,7 @@ def process_document(file_path, output_dir=Path("../output/gemini"), save=True, 
 
             # Process each page individually
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model=settings.gemini.model,
                 contents=[
                     types.Part.from_bytes(
                         data=image_bytes,
