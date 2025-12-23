@@ -40,7 +40,7 @@ dependencies = [
     "python-levenshtein>=0.27.3",
     "qwen-vl-utils>=0.0.14",
     "requests>=2.32.4",
-    "scipy>=1.14.0",
+    "scipy>=1.14.0,<1.16",
     "transformers>=4.56.2",
     "yomitoku>=0.9.5",
 ]
