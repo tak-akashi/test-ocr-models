@@ -91,17 +91,7 @@ services:
       - DEBUG=1
 
     # Jupyter with auto-reload and debugging enabled
-    command: >
-      bash -c "
-        jupyter lab
-        --ip=0.0.0.0
-        --port=8888
-        --no-browser
-        --allow-root
-        --NotebookApp.token=''
-        --NotebookApp.password=''
-        --ServerApp.allow_origin='*'
-        --autoreload
-      "
+    entrypoint: []
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=", "--NotebookApp.password=", "--ServerApp.allow_origin=*"]
 
     restart: unless-stopped

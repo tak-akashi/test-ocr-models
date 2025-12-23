@@ -137,7 +137,8 @@ services:
     ports:
       - "8890:8888"
     working_dir: /app
-    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
+    entrypoint: []  # Bypass entrypoint.sh for direct jupyter execution
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=", "--NotebookApp.password="]
     restart: unless-stopped
     profiles:
       - jupyter  # Only start with --profile jupyter

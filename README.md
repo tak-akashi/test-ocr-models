@@ -559,6 +559,200 @@ Linux/macOSの場合:
 
 ---
 
+## Docker Jupyter Lab 開発環境
+
+Docker環境でJupyter Labを使用してインタラクティブな開発・実験が可能です。
+
+### 起動方法
+
+```bash
+# Jupyter Lab を起動（バックグラウンド）
+docker compose --profile jupyter up -d jupyter
+
+# フォアグラウンドで起動（ログを確認しながら）
+docker compose --profile jupyter up jupyter
+```
+
+### アクセス
+
+起動後、以下のURLでJupyter Labにアクセスできます：
+
+- **URL**: http://localhost:8890
+- **認証**: トークン/パスワードなし（開発用設定）
+
+> **Note**: ポート8890はdocker-compose.ymlで設定されています。他のサービスと競合する場合は変更可能です。
+
+### マウントされるディレクトリ
+
+| ローカル | コンテナ内 | 説明 |
+|----------|-----------|------|
+| `./src/` | `/app/src/` | ソースコード（編集可能） |
+| `./notebook/` | `/app/notebook/` | ノートブックファイル |
+| `./data/` | `/app/data/` | 入力データ（読み取り専用） |
+| `./output/` | `/app/output/` | 出力結果 |
+
+### 停止方法
+
+```bash
+# 停止
+docker compose --profile jupyter down
+
+# または Ctrl+C（フォアグラウンド起動時）
+```
+
+### トラブルシューティング
+
+#### コンテナが即座に終了する
+
+`docker-compose.override.yml`が存在する場合、設定が上書きされている可能性があります。
+
+```bash
+# 設定を確認
+docker compose --profile jupyter config
+
+# override.ymlを一時的に無効化
+mv docker-compose.override.yml docker-compose.override.yml.bak
+docker compose --profile jupyter up jupyter
+```
+
+#### ポートが使用中
+
+```bash
+# ポート使用状況を確認
+lsof -i :8890
+
+# 別のポートを使用（一時的）
+docker compose --profile jupyter run -p 8891:8888 jupyter
+```
+
+---
+
+## 設定と環境変数
+
+### 概要
+
+本プロジェクトはPydantic Settingsを使用した設定管理システムを採用しています。すべての設定は以下の優先順位で読み込まれます：
+
+1. **環境変数** (最優先)
+2. **`.env`ファイル**
+3. **デフォルト値**
+
+### 基本的な使用方法
+
+```python
+from src.config import get_settings
+
+# 設定を取得（シングルトン）
+settings = get_settings()
+
+# ネスト構造でアクセス
+api_key = settings.upstage.api_key
+model = settings.gemini.model
+```
+
+### 必須環境変数
+
+以下の環境変数は使用するモデルに応じて設定が必要です：
+
+```env
+# Upstage
+UPSTAGE_API_KEY=your_upstage_api_key
+
+# Azure Document Intelligence
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=your_azure_endpoint
+AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_azure_api_key
+
+# Google Gemini
+GEMINI_API_KEY=your_gemini_api_key
+
+# Anthropic Claude
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+### オプション環境変数（モデル設定）
+
+デフォルト値を上書きする場合に設定します：
+
+```env
+# Upstage
+UPSTAGE_ENDPOINT=https://api.upstage.ai/v1/document-digitization
+UPSTAGE_LAYOUT_MODEL=document-parse-nightly
+UPSTAGE_OCR_MODEL=ocr-nightly
+
+# Azure
+AZURE_LAYOUT_MODEL=prebuilt-layout
+AZURE_OCR_MODEL=prebuilt-read
+
+# Gemini
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_DPI=200
+
+# Claude
+CLAUDE_MODEL=claude-sonnet-4-5-20250929
+CLAUDE_MAX_TOKENS=4096
+CLAUDE_DPI=200
+
+# Qwen
+QWEN_MODEL=Qwen/Qwen2.5-VL-7B-Instruct
+QWEN_MAX_NEW_TOKENS=2048
+QWEN_TEMPERATURE=0.1
+QWEN_DO_SAMPLE=False
+
+# YOMITOKU
+YOMITOKU_VISUALIZE=True
+```
+
+### 設定クラス構造
+
+| クラス | 用途 | 主な設定項目 |
+|--------|------|-------------|
+| `UpstageConfig` | Upstage API | `api_key`, `endpoint`, `layout_model`, `ocr_model` |
+| `AzureConfig` | Azure Document Intelligence | `endpoint`, `api_key`, `layout_model`, `ocr_model` |
+| `GeminiConfig` | Google Gemini | `api_key`, `model`, `dpi` |
+| `ClaudeConfig` | Anthropic Claude | `api_key`, `model`, `max_tokens`, `dpi` |
+| `QwenConfig` | Qwen2.5-VL | `model`, `max_new_tokens`, `temperature`, `do_sample` |
+| `YomitokuConfig` | YOMITOKU | `visualize` |
+
+### プログラムからの設定変更
+
+```python
+from src.config import get_settings, clear_settings_cache
+
+# 現在の設定を取得
+settings = get_settings()
+print(f"Upstage model: {settings.upstage.layout_model}")
+
+# 環境変数を変更後、キャッシュをクリアして再読み込み
+import os
+os.environ["UPSTAGE_LAYOUT_MODEL"] = "document-parse-v2"
+clear_settings_cache()
+settings = get_settings()
+print(f"New model: {settings.upstage.layout_model}")
+```
+
+### Docker環境での設定
+
+Docker環境では、`.env`ファイルが自動的に読み込まれます（`docker-compose.yml`の`env_file`設定）。
+
+```yaml
+# docker-compose.yml
+services:
+  document-processor:
+    env_file:
+      - .env  # APIキーと設定を読み込み
+```
+
+追加の環境変数を設定する場合：
+
+```bash
+# 実行時に環境変数を追加
+docker compose run -e GEMINI_DPI=300 --rm document-processor layout --models gemini
+
+# または docker-compose.override.yml で設定
+```
+
+---
+
 ## 開発
 
 ### テストの実行
